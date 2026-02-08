@@ -1,17 +1,21 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Panel, Cliente, Transaccion } from '@/types';
+import { Panel, Cliente, Suscripcion, Transaccion } from '@/types';
 import { addDays, format } from 'date-fns';
 
 interface DataContextType {
   paneles: Panel[];
   clientes: Cliente[];
+  suscripciones: Suscripcion[];
   transacciones: Transaccion[];
   addPanel: (panel: Omit<Panel, 'id' | 'cuposUsados'>) => void;
   updatePanel: (panel: Panel) => void;
   deletePanel: (id: string) => void;
-  addCliente: (cliente: Omit<Cliente, 'id' | 'fechaVencimiento'>) => void;
+  addCliente: (cliente: Omit<Cliente, 'id'>) => void;
   updateCliente: (cliente: Cliente) => void;
   deleteCliente: (id: string) => void;
+  addSuscripcion: (suscripcion: Omit<Suscripcion, 'id' | 'fechaVencimiento'>) => void;
+  deleteSuscripcion: (id: string) => void;
+  getSuscripcionesByCliente: (clienteId: string) => Suscripcion[];
   addTransaccion: (transaccion: Omit<Transaccion, 'id'>) => void;
   deleteTransaccion: (id: string) => void;
   getPanelById: (id: string) => Panel | undefined;
@@ -33,13 +37,53 @@ function loadFromStorage<T>(key: string, fallback: T): T {
   }
 }
 
+// Migrate old data: convert old clientes (with panelId/fechaInicio) into new format + suscripciones
+function migrateOldData() {
+  try {
+    const clientesRaw = localStorage.getItem('clientes');
+    if (!clientesRaw) return;
+    const oldClientes = JSON.parse(clientesRaw);
+    if (!oldClientes.length || !('panelId' in oldClientes[0])) return;
+
+    const existingSuscripciones = loadFromStorage<Suscripcion[]>('suscripciones', []);
+    if (existingSuscripciones.length > 0) return; // already migrated
+
+    const newClientes: Cliente[] = [];
+    const newSuscripciones: Suscripcion[] = [];
+
+    for (const old of oldClientes) {
+      newClientes.push({ id: old.id, nombre: old.nombre, whatsapp: old.whatsapp });
+      if (old.panelId) {
+        newSuscripciones.push({
+          id: generateId(),
+          clienteId: old.id,
+          panelId: old.panelId,
+          servicio: 'General',
+          fechaInicio: old.fechaInicio,
+          fechaVencimiento: old.fechaVencimiento || format(addDays(new Date(old.fechaInicio), 30), 'yyyy-MM-dd'),
+        });
+      }
+    }
+
+    localStorage.setItem('clientes', JSON.stringify(newClientes));
+    localStorage.setItem('suscripciones', JSON.stringify(newSuscripciones));
+  } catch {
+    // ignore migration errors
+  }
+}
+
+// Run migration on load
+migrateOldData();
+
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [paneles, setPaneles] = useState<Panel[]>(() => loadFromStorage('paneles', []));
   const [clientes, setClientes] = useState<Cliente[]>(() => loadFromStorage('clientes', []));
+  const [suscripciones, setSuscripciones] = useState<Suscripcion[]>(() => loadFromStorage('suscripciones', []));
   const [transacciones, setTransacciones] = useState<Transaccion[]>(() => loadFromStorage('transacciones', []));
 
   useEffect(() => { localStorage.setItem('paneles', JSON.stringify(paneles)); }, [paneles]);
   useEffect(() => { localStorage.setItem('clientes', JSON.stringify(clientes)); }, [clientes]);
+  useEffect(() => { localStorage.setItem('suscripciones', JSON.stringify(suscripciones)); }, [suscripciones]);
   useEffect(() => { localStorage.setItem('transacciones', JSON.stringify(transacciones)); }, [transacciones]);
 
   const addPanel = useCallback((panel: Omit<Panel, 'id' | 'cuposUsados'>) => {
@@ -52,47 +96,55 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const deletePanel = useCallback((id: string) => {
     setPaneles(prev => prev.filter(p => p.id !== id));
-    setClientes(prev => prev.filter(c => c.panelId !== id));
+    setSuscripciones(prev => prev.filter(s => s.panelId !== id));
   }, []);
 
-  const addCliente = useCallback((cliente: Omit<Cliente, 'id' | 'fechaVencimiento'>) => {
-    const fechaVencimiento = format(addDays(new Date(cliente.fechaInicio), 30), 'yyyy-MM-dd');
-    setClientes(prev => [...prev, { ...cliente, id: generateId(), fechaVencimiento }]);
-    setPaneles(prev => prev.map(p =>
-      p.id === cliente.panelId ? { ...p, cuposUsados: p.cuposUsados + 1 } : p
-    ));
+  const addCliente = useCallback((cliente: Omit<Cliente, 'id'>) => {
+    setClientes(prev => [...prev, { ...cliente, id: generateId() }]);
   }, []);
 
   const updateCliente = useCallback((cliente: Cliente) => {
-    setClientes(prev => {
-      const old = prev.find(c => c.id === cliente.id);
-      const updated = {
-        ...cliente,
-        fechaVencimiento: format(addDays(new Date(cliente.fechaInicio), 30), 'yyyy-MM-dd'),
-      };
-      // If panel changed, update cupos
-      if (old && old.panelId !== cliente.panelId) {
-        setPaneles(p => p.map(panel => {
-          if (panel.id === old.panelId) return { ...panel, cuposUsados: Math.max(0, panel.cuposUsados - 1) };
-          if (panel.id === cliente.panelId) return { ...panel, cuposUsados: panel.cuposUsados + 1 };
-          return panel;
-        }));
-      }
-      return prev.map(c => c.id === cliente.id ? updated : c);
-    });
+    setClientes(prev => prev.map(c => c.id === cliente.id ? cliente : c));
   }, []);
 
   const deleteCliente = useCallback((id: string) => {
-    setClientes(prev => {
-      const cliente = prev.find(c => c.id === id);
-      if (cliente) {
+    // Remove suscripciones and update cupos
+    setSuscripciones(prev => {
+      const clienteSubs = prev.filter(s => s.clienteId === id);
+      // Decrement cupos for each panel
+      setPaneles(p => p.map(panel => {
+        const count = clienteSubs.filter(s => s.panelId === panel.id).length;
+        return count > 0 ? { ...panel, cuposUsados: Math.max(0, panel.cuposUsados - count) } : panel;
+      }));
+      return prev.filter(s => s.clienteId !== id);
+    });
+    setClientes(prev => prev.filter(c => c.id !== id));
+  }, []);
+
+  const addSuscripcion = useCallback((suscripcion: Omit<Suscripcion, 'id' | 'fechaVencimiento'>) => {
+    const fechaVencimiento = format(addDays(new Date(suscripcion.fechaInicio), 30), 'yyyy-MM-dd');
+    setSuscripciones(prev => [...prev, { ...suscripcion, id: generateId(), fechaVencimiento }]);
+    setPaneles(prev => prev.map(p =>
+      p.id === suscripcion.panelId ? { ...p, cuposUsados: p.cuposUsados + 1 } : p
+    ));
+  }, []);
+
+  const deleteSuscripcion = useCallback((id: string) => {
+    setSuscripciones(prev => {
+      const sub = prev.find(s => s.id === id);
+      if (sub) {
         setPaneles(p => p.map(panel =>
-          panel.id === cliente.panelId ? { ...panel, cuposUsados: Math.max(0, panel.cuposUsados - 1) } : panel
+          panel.id === sub.panelId ? { ...panel, cuposUsados: Math.max(0, panel.cuposUsados - 1) } : panel
         ));
       }
-      return prev.filter(c => c.id !== id);
+      return prev.filter(s => s.id !== id);
     });
   }, []);
+
+  const getSuscripcionesByCliente = useCallback((clienteId: string) =>
+    suscripciones.filter(s => s.clienteId === clienteId),
+    [suscripciones]
+  );
 
   const addTransaccion = useCallback((transaccion: Omit<Transaccion, 'id'>) => {
     setTransacciones(prev => [...prev, { ...transaccion, id: generateId() }]);
@@ -111,9 +163,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      paneles, clientes, transacciones,
+      paneles, clientes, suscripciones, transacciones,
       addPanel, updatePanel, deletePanel,
       addCliente, updateCliente, deleteCliente,
+      addSuscripcion, deleteSuscripcion, getSuscripcionesByCliente,
       addTransaccion, deleteTransaccion,
       getPanelById, getCuposDisponibles,
     }}>

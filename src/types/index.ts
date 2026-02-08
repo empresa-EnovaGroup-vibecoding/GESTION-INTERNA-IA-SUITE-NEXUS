@@ -13,7 +13,13 @@ export interface Cliente {
   id: string;
   nombre: string;
   whatsapp: string;
+}
+
+export interface Suscripcion {
+  id: string;
+  clienteId: string;
   panelId: string;
+  servicio: string;
   fechaInicio: string;
   fechaVencimiento: string; // auto: fechaInicio + 30 days
 }

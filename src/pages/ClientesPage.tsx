@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
-import { Cliente } from '@/types';
+import { Cliente, Suscripcion } from '@/types';
 import { format, isBefore, isToday, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Plus, Trash2, Edit2, Phone, MessageCircle } from 'lucide-react';
-import { getWhatsAppNotificationUrl } from '@/lib/whatsapp';
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { Plus, Trash2, Edit2, Phone, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,35 +14,25 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import ClienteSuscripciones from '@/components/ClienteSuscripciones';
 
 export default function ClientesPage() {
-  const { clientes, paneles, addCliente, updateCliente, deleteCliente, getPanelById, getCuposDisponibles } = useData();
+  const { clientes, suscripciones, addCliente, updateCliente, deleteCliente, getSuscripcionesByCliente, getPanelById } = useData();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Cliente | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const [form, setForm] = useState({
-    nombre: '',
-    whatsapp: '',
-    panelId: '',
-    fechaInicio: format(new Date(), 'yyyy-MM-dd'),
-  });
+  const [form, setForm] = useState({ nombre: '', whatsapp: '' });
 
   const resetForm = () => {
-    setForm({ nombre: '', whatsapp: '', panelId: '', fechaInicio: format(new Date(), 'yyyy-MM-dd') });
+    setForm({ nombre: '', whatsapp: '' });
     setEditing(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editing) {
-      updateCliente({ ...editing, ...form, fechaVencimiento: editing.fechaVencimiento });
+      updateCliente({ ...editing, ...form });
     } else {
       addCliente(form);
     }
@@ -54,20 +42,31 @@ export default function ClientesPage() {
 
   const handleEdit = (cliente: Cliente) => {
     setEditing(cliente);
-    setForm({
-      nombre: cliente.nombre,
-      whatsapp: cliente.whatsapp,
-      panelId: cliente.panelId,
-      fechaInicio: cliente.fechaInicio,
-    });
+    setForm({ nombre: cliente.nombre, whatsapp: cliente.whatsapp });
     setOpen(true);
   };
 
-  const getEstado = (fechaVencimiento: string) => {
-    const fecha = startOfDay(new Date(fechaVencimiento));
+  const getServiciosActivos = (clienteId: string): Suscripcion[] => {
+    return getSuscripcionesByCliente(clienteId);
+  };
+
+  const getServiciosLabel = (clienteId: string): string => {
+    const subs = getServiciosActivos(clienteId);
+    if (subs.length === 0) return '—';
     const hoy = startOfDay(new Date());
-    if (isBefore(fecha, hoy)) return 'vencido';
-    if (isToday(fecha)) return 'hoy';
+    const activos = subs.filter(s => !isBefore(startOfDay(new Date(s.fechaVencimiento)), hoy));
+    if (activos.length === 0) return `${subs.length} vencido${subs.length > 1 ? 's' : ''}`;
+    return activos.map(s => s.servicio).join(' + ');
+  };
+
+  const getEstadoGlobal = (clienteId: string) => {
+    const subs = getServiciosActivos(clienteId);
+    if (subs.length === 0) return 'sin-servicio';
+    const hoy = startOfDay(new Date());
+    const hayVencido = subs.some(s => isBefore(startOfDay(new Date(s.fechaVencimiento)), hoy));
+    const hayHoy = subs.some(s => isToday(new Date(s.fechaVencimiento)));
+    if (hayVencido) return 'vencido';
+    if (hayHoy) return 'hoy';
     return 'activo';
   };
 
@@ -75,6 +74,7 @@ export default function ClientesPage() {
     switch (estado) {
       case 'vencido': return 'alert-badge bg-destructive/10 text-destructive';
       case 'hoy': return 'alert-badge bg-warning/10 text-warning';
+      case 'sin-servicio': return 'alert-badge bg-muted text-muted-foreground';
       default: return 'alert-badge bg-success/10 text-success';
     }
   };
@@ -83,6 +83,7 @@ export default function ClientesPage() {
     switch (estado) {
       case 'vencido': return 'Vencido';
       case 'hoy': return 'Vence hoy';
+      case 'sin-servicio': return 'Sin servicios';
       default: return 'Activo';
     }
   };
@@ -124,42 +125,15 @@ export default function ClientesPage() {
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Panel</Label>
-                <Select
-                  value={form.panelId}
-                  onValueChange={(v) => setForm(f => ({ ...f, panelId: v }))}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar panel" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {paneles.map(p => {
-                      const disponibles = getCuposDisponibles(p.id);
-                      const disabled = disponibles <= 0 && (!editing || editing.panelId !== p.id);
-                      return (
-                        <SelectItem key={p.id} value={p.id} disabled={disabled}>
-                          {p.nombre} ({disponibles} cupos)
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Fecha de Inicio</Label>
-                <Input
-                  type="date"
-                  value={form.fechaInicio}
-                  onChange={(e) => setForm(f => ({ ...f, fechaInicio: e.target.value }))}
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={!form.panelId}>
+              <Button type="submit" className="w-full">
                 {editing ? 'Guardar Cambios' : 'Registrar Cliente'}
               </Button>
             </form>
+
+            {/* Suscripciones section when editing */}
+            {editing && (
+              <ClienteSuscripciones clienteId={editing.id} />
+            )}
           </DialogContent>
         </Dialog>
       </div>
@@ -179,69 +153,90 @@ export default function ClientesPage() {
               <tr>
                 <th className="table-header px-4 py-3 text-left">Nombre</th>
                 <th className="table-header px-4 py-3 text-left">WhatsApp</th>
-                <th className="table-header px-4 py-3 text-left">Panel</th>
-                <th className="table-header px-4 py-3 text-left">Inicio</th>
-                <th className="table-header px-4 py-3 text-left">Vencimiento</th>
+                <th className="table-header px-4 py-3 text-left">Servicios</th>
                 <th className="table-header px-4 py-3 text-left">Estado</th>
                 <th className="table-header px-4 py-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {clientes.map(cliente => {
-                const estado = getEstado(cliente.fechaVencimiento);
-                const panel = getPanelById(cliente.panelId);
+                const estado = getEstadoGlobal(cliente.id);
+                const subs = getServiciosActivos(cliente.id);
+                const isExpanded = expandedId === cliente.id;
                 return (
-                  <tr key={cliente.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3 font-medium">{cliente.nombre}</td>
-                    <td className="px-4 py-3">
-                      <a
-                        href={`https://wa.me/${cliente.whatsapp.replace(/\D/g, '')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-primary hover:underline"
-                      >
-                        <Phone className="h-3 w-3" />
-                        {cliente.whatsapp}
-                      </a>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{panel?.nombre || '—'}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {format(new Date(cliente.fechaInicio), 'dd MMM yyyy', { locale: es })}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {format(new Date(cliente.fechaVencimiento), 'dd MMM yyyy', { locale: es })}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={estadoBadge(estado)}>{estadoLabel(estado)}</span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex justify-end gap-1">
-                        {estado !== 'activo' && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <a
-                                  href={getWhatsAppNotificationUrl(cliente, estado === 'hoy' ? 'hoy' : 'vencido')}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="rounded p-1.5 text-success hover:bg-success/10"
-                                >
-                                  <MessageCircle className="h-3.5 w-3.5" />
-                                </a>
-                              </TooltipTrigger>
-                              <TooltipContent>Enviar recordatorio</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                        <button onClick={() => handleEdit(cliente)} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </button>
-                        <button onClick={() => deleteCliente(cliente.id)} className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                  <>
+                    <tr key={cliente.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3 font-medium">{cliente.nombre}</td>
+                      <td className="px-4 py-3">
+                        <a
+                          href={`https://wa.me/${cliente.whatsapp.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-primary hover:underline"
+                        >
+                          <Phone className="h-3 w-3" />
+                          {cliente.whatsapp}
+                        </a>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-muted-foreground">{getServiciosLabel(cliente.id)}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={estadoBadge(estado)}>{estadoLabel(estado)}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex justify-end gap-1">
+                          {subs.length > 0 && (
+                            <button
+                              onClick={() => setExpandedId(isExpanded ? null : cliente.id)}
+                              className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            >
+                              {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                            </button>
+                          )}
+                          <button onClick={() => handleEdit(cliente)} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </button>
+                          <button onClick={() => deleteCliente(cliente.id)} className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {isExpanded && subs.length > 0 && (
+                      <tr key={`${cliente.id}-subs`} className="bg-muted/20">
+                        <td colSpan={5} className="px-6 py-3">
+                          <div className="space-y-2">
+                            {subs.map(sub => {
+                              const panel = getPanelById(sub.panelId);
+                              const vencido = isBefore(startOfDay(new Date(sub.fechaVencimiento)), startOfDay(new Date()));
+                              const hoy = isToday(new Date(sub.fechaVencimiento));
+                              return (
+                                <div key={sub.id} className="flex items-center justify-between rounded-md bg-card p-2.5 text-xs">
+                                  <div className="flex items-center gap-3">
+                                    <span className="font-medium">{sub.servicio}</span>
+                                    <span className="text-muted-foreground">Panel: {panel?.nombre || '—'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-muted-foreground">
+                                      {format(new Date(sub.fechaInicio), 'dd MMM', { locale: es })} → {format(new Date(sub.fechaVencimiento), 'dd MMM yyyy', { locale: es })}
+                                    </span>
+                                    <span className={
+                                      vencido ? 'alert-badge bg-destructive/10 text-destructive' :
+                                      hoy ? 'alert-badge bg-warning/10 text-warning' :
+                                      'alert-badge bg-success/10 text-success'
+                                    }>
+                                      {vencido ? 'Vencido' : hoy ? 'Hoy' : 'Activo'}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 );
               })}
             </tbody>
