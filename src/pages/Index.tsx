@@ -1,13 +1,30 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from 'react';
+import { PageView } from '@/types';
+import { DataProvider } from '@/contexts/DataContext';
+import AppLayout from '@/components/AppLayout';
+import Dashboard from '@/pages/Dashboard';
+import PanelesPage from '@/pages/PanelesPage';
+import ClientesPage from '@/pages/ClientesPage';
+import FinanzasPage from '@/pages/FinanzasPage';
 
 const Index = () => {
+  const [currentPage, setCurrentPage] = useState<PageView>('dashboard');
+
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'dashboard': return <Dashboard />;
+      case 'paneles': return <PanelesPage />;
+      case 'clientes': return <ClientesPage />;
+      case 'finanzas': return <FinanzasPage />;
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
+    <DataProvider>
+      <AppLayout currentPage={currentPage} onNavigate={setCurrentPage}>
+        {renderPage()}
+      </AppLayout>
+    </DataProvider>
   );
 };
 
