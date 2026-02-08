@@ -2,7 +2,11 @@ import { useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { format, isToday, isBefore, addDays, isAfter, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AlertTriangle, Clock, Users, Monitor, TrendingUp, CalendarClock } from 'lucide-react';
+import { AlertTriangle, Clock, Users, Monitor, TrendingUp, CalendarClock, MessageCircle } from 'lucide-react';
+import { getWhatsAppNotificationUrl } from '@/lib/whatsapp';
+import { Cliente } from '@/types';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 
 export default function Dashboard() {
   const { clientes, paneles, transacciones, getPanelById } = useData();
@@ -37,6 +41,26 @@ export default function Dashboard() {
     { label: 'Ganancia Neta', value: `$${(totalIngresos - totalGastos).toLocaleString()}`, icon: TrendingUp, color: 'text-success' },
     { label: 'Vencimientos Hoy', value: vencimientosHoy.length, icon: AlertTriangle, color: 'text-destructive' },
   ];
+
+  const WhatsAppButton = ({ cliente, tipo }: { cliente: Cliente; tipo: 'proximo' | 'hoy' | 'vencido' }) => (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <a
+            href={getWhatsAppNotificationUrl(cliente, tipo)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center rounded-md p-1.5 text-success hover:bg-success/10 transition-colors"
+          >
+            <MessageCircle className="h-4 w-4" />
+          </a>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Enviar recordatorio por WhatsApp</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 
   return (
     <div className="space-y-6">
@@ -77,9 +101,12 @@ export default function Dashboard() {
                     <p className="font-medium">{c.nombre}</p>
                     <p className="text-xs text-muted-foreground">{c.whatsapp}</p>
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    {getPanelById(c.panelId)?.nombre || 'Sin panel'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {getPanelById(c.panelId)?.nombre || 'Sin panel'}
+                    </span>
+                    <WhatsAppButton cliente={c} tipo="hoy" />
+                  </div>
                 </div>
               ))}
             </div>
@@ -105,9 +132,12 @@ export default function Dashboard() {
                     <p className="font-medium">{c.nombre}</p>
                     <p className="text-xs text-muted-foreground">{c.whatsapp}</p>
                   </div>
-                  <span className="text-xs font-medium text-warning">
-                    {format(new Date(c.fechaVencimiento), 'dd MMM', { locale: es })}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-warning">
+                      {format(new Date(c.fechaVencimiento), 'dd MMM', { locale: es })}
+                    </span>
+                    <WhatsAppButton cliente={c} tipo="proximo" />
+                  </div>
                 </div>
               ))}
             </div>
@@ -132,9 +162,12 @@ export default function Dashboard() {
                   <p className="font-medium">{c.nombre}</p>
                   <p className="text-xs text-muted-foreground">{c.whatsapp}</p>
                 </div>
-                <span className="text-xs text-muted-foreground">
-                  Venció {format(new Date(c.fechaVencimiento), 'dd MMM', { locale: es })}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    Venció {format(new Date(c.fechaVencimiento), 'dd MMM', { locale: es })}
+                  </span>
+                  <WhatsAppButton cliente={c} tipo="vencido" />
+                </div>
               </div>
             ))}
             {vencidos.length > 5 && (

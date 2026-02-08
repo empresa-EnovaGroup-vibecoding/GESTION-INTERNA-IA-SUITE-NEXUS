@@ -3,7 +3,9 @@ import { useData } from '@/contexts/DataContext';
 import { Cliente } from '@/types';
 import { format, isBefore, isToday, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Plus, Trash2, Edit2, Phone } from 'lucide-react';
+import { Plus, Trash2, Edit2, Phone, MessageCircle } from 'lucide-react';
+import { getWhatsAppNotificationUrl } from '@/lib/whatsapp';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -214,6 +216,23 @@ export default function ClientesPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-1">
+                        {estado !== 'activo' && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <a
+                                  href={getWhatsAppNotificationUrl(cliente, estado === 'hoy' ? 'hoy' : 'vencido')}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="rounded p-1.5 text-success hover:bg-success/10"
+                                >
+                                  <MessageCircle className="h-3.5 w-3.5" />
+                                </a>
+                              </TooltipTrigger>
+                              <TooltipContent>Enviar recordatorio</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                         <button onClick={() => handleEdit(cliente)} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
                           <Edit2 className="h-3.5 w-3.5" />
                         </button>
