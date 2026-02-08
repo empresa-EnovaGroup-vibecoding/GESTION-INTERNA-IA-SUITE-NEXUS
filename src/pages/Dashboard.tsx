@@ -4,63 +4,101 @@ import { format, isToday, isBefore, addDays, isAfter, startOfDay } from 'date-fn
 import { es } from 'date-fns/locale';
 import { AlertTriangle, Clock, Users, Monitor, TrendingUp, CalendarClock, MessageCircle } from 'lucide-react';
 import { getWhatsAppNotificationUrl } from '@/lib/whatsapp';
-import { Cliente } from '@/types';
-import { Button } from '@/components/ui/button';
+import { Suscripcion, Cliente } from '@/types';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 
 export default function Dashboard() {
-  const { clientes, paneles, transacciones, getPanelById } = useData();
+  const { clientes, paneles, suscripciones, transacciones, getPanelById } = useData();
 
   const today = startOfDay(new Date());
   const in3Days = addDays(today, 3);
 
+  // Enrich suscripciones with cliente info
+  const getCliente = (clienteId: string) => clientes.find(c => c.id === clienteId);
+
   const vencimientosHoy = useMemo(() =>
-    clientes.filter(c => isToday(new Date(c.fechaVencimiento))),
-    [clientes]
+    suscripciones.filter(s => isToday(new Date(s.fechaVencimiento))),
+    [suscripciones]
   );
 
   const vencimientosProximos = useMemo(() =>
-    clientes.filter(c => {
-      const fecha = startOfDay(new Date(c.fechaVencimiento));
+    suscripciones.filter(s => {
+      const fecha = startOfDay(new Date(s.fechaVencimiento));
       return isAfter(fecha, today) && (isBefore(fecha, in3Days) || fecha.getTime() === in3Days.getTime());
     }),
-    [clientes, today, in3Days]
+    [suscripciones, today, in3Days]
   );
 
   const vencidos = useMemo(() =>
-    clientes.filter(c => isBefore(new Date(c.fechaVencimiento), today)),
-    [clientes, today]
+    suscripciones.filter(s => isBefore(new Date(s.fechaVencimiento), today)),
+    [suscripciones, today]
   );
 
   const totalIngresos = transacciones.filter(t => t.tipo === 'ingreso').reduce((s, t) => s + t.monto, 0);
   const totalGastos = transacciones.filter(t => t.tipo === 'gasto').reduce((s, t) => s + t.monto, 0);
 
   const stats = [
-    { label: 'Clientes Activos', value: clientes.length, icon: Users, color: 'text-primary' },
+    { label: 'Clientes', value: clientes.length, icon: Users, color: 'text-primary' },
     { label: 'Paneles', value: paneles.length, icon: Monitor, color: 'text-primary' },
     { label: 'Ganancia Neta', value: `$${(totalIngresos - totalGastos).toLocaleString()}`, icon: TrendingUp, color: 'text-success' },
     { label: 'Vencimientos Hoy', value: vencimientosHoy.length, icon: AlertTriangle, color: 'text-destructive' },
   ];
 
-  const WhatsAppButton = ({ cliente, tipo }: { cliente: Cliente; tipo: 'proximo' | 'hoy' | 'vencido' }) => (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <a
-            href={getWhatsAppNotificationUrl(cliente, tipo)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center rounded-md p-1.5 text-success hover:bg-success/10 transition-colors"
-          >
-            <MessageCircle className="h-4 w-4" />
-          </a>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Enviar recordatorio por WhatsApp</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
+  const WhatsAppButton = ({ suscripcion, tipo }: { suscripcion: Suscripcion; tipo: 'proximo' | 'hoy' | 'vencido' }) => {
+    const cliente = getCliente(suscripcion.clienteId);
+    if (!cliente) return null;
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <a
+              href={getWhatsAppNotificationUrl(cliente, suscripcion, tipo)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center rounded-md p-1.5 text-success hover:bg-success/10 transition-colors"
+            >
+              <MessageCircle className="h-4 w-4" />
+            </a>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Enviar recordatorio por WhatsApp</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
+  const SuscripcionItem = ({ sub, tipo }: { sub: Suscripcion; tipo: 'proximo' | 'hoy' | 'vencido' }) => {
+    const cliente = getCliente(sub.clienteId);
+    const panel = getPanelById(sub.panelId);
+    if (!cliente) return null;
+    return (
+      <div className="flex items-center justify-between rounded-md bg-card p-3 text-sm">
+        <div>
+          <p className="font-medium">{cliente.nombre}</p>
+          <p className="text-xs text-muted-foreground">{sub.servicio} · {cliente.whatsapp}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {tipo === 'proximo' && (
+            <span className="text-xs font-medium text-warning">
+              {format(new Date(sub.fechaVencimiento), 'dd MMM', { locale: es })}
+            </span>
+          )}
+          {tipo === 'vencido' && (
+            <span className="text-xs text-muted-foreground">
+              Venció {format(new Date(sub.fechaVencimiento), 'dd MMM', { locale: es })}
+            </span>
+          )}
+          {tipo === 'hoy' && (
+            <span className="text-xs text-muted-foreground">
+              {panel?.nombre || '—'}
+            </span>
+          )}
+          <WhatsAppButton suscripcion={sub} tipo={tipo} />
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -95,20 +133,7 @@ export default function Dashboard() {
             <p className="text-sm text-muted-foreground">No hay vencimientos hoy</p>
           ) : (
             <div className="space-y-2">
-              {vencimientosHoy.map(c => (
-                <div key={c.id} className="flex items-center justify-between rounded-md bg-card p-3 text-sm">
-                  <div>
-                    <p className="font-medium">{c.nombre}</p>
-                    <p className="text-xs text-muted-foreground">{c.whatsapp}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      {getPanelById(c.panelId)?.nombre || 'Sin panel'}
-                    </span>
-                    <WhatsAppButton cliente={c} tipo="hoy" />
-                  </div>
-                </div>
-              ))}
+              {vencimientosHoy.map(s => <SuscripcionItem key={s.id} sub={s} tipo="hoy" />)}
             </div>
           )}
         </div>
@@ -126,20 +151,7 @@ export default function Dashboard() {
             <p className="text-sm text-muted-foreground">No hay vencimientos próximos</p>
           ) : (
             <div className="space-y-2">
-              {vencimientosProximos.map(c => (
-                <div key={c.id} className="flex items-center justify-between rounded-md bg-card p-3 text-sm">
-                  <div>
-                    <p className="font-medium">{c.nombre}</p>
-                    <p className="text-xs text-muted-foreground">{c.whatsapp}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-warning">
-                      {format(new Date(c.fechaVencimiento), 'dd MMM', { locale: es })}
-                    </span>
-                    <WhatsAppButton cliente={c} tipo="proximo" />
-                  </div>
-                </div>
-              ))}
+              {vencimientosProximos.map(s => <SuscripcionItem key={s.id} sub={s} tipo="proximo" />)}
             </div>
           )}
         </div>
@@ -156,20 +168,7 @@ export default function Dashboard() {
             </span>
           </div>
           <div className="space-y-2">
-            {vencidos.slice(0, 5).map(c => (
-              <div key={c.id} className="flex items-center justify-between rounded-md bg-card p-3 text-sm">
-                <div>
-                  <p className="font-medium">{c.nombre}</p>
-                  <p className="text-xs text-muted-foreground">{c.whatsapp}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">
-                    Venció {format(new Date(c.fechaVencimiento), 'dd MMM', { locale: es })}
-                  </span>
-                  <WhatsAppButton cliente={c} tipo="vencido" />
-                </div>
-              </div>
-            ))}
+            {vencidos.slice(0, 5).map(s => <SuscripcionItem key={s.id} sub={s} tipo="vencido" />)}
             {vencidos.length > 5 && (
               <p className="text-xs text-muted-foreground">+{vencidos.length - 5} más</p>
             )}
