@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Panel, Cliente, Servicio, Suscripcion, Transaccion, EstadoPanel, CredencialHistorial } from '@/types';
+import { Panel, Cliente, Servicio, Suscripcion, Transaccion, Pago, EstadoPanel, CredencialHistorial } from '@/types';
 import { addDays, format } from 'date-fns';
 
 interface DataContextType {
@@ -8,6 +8,7 @@ interface DataContextType {
   servicios: Servicio[];
   suscripciones: Suscripcion[];
   transacciones: Transaccion[];
+  pagos: Pago[];
   // Paneles
   addPanel: (panel: Omit<Panel, 'id' | 'cuposUsados' | 'historialCredenciales'>) => void;
   updatePanel: (panel: Panel) => void;
@@ -31,6 +32,9 @@ interface DataContextType {
   // Transacciones
   addTransaccion: (transaccion: Omit<Transaccion, 'id'>) => void;
   deleteTransaccion: (id: string) => void;
+  // Pagos
+  addPago: (pago: Omit<Pago, 'id'>) => void;
+  deletePago: (id: string) => void;
   // Helpers
   getPanelById: (id: string) => Panel | undefined;
   getCuposDisponibles: (panelId: string) => number;
@@ -123,11 +127,17 @@ function migrateData() {
       }
     }
 
-    // Migrate old paneles to new credential history format
+    // Migrate old paneles to new credential history format + costoMensual
     const panelesRaw = localStorage.getItem('paneles');
     if (panelesRaw) {
       const oldPaneles = JSON.parse(panelesRaw);
-      if (oldPaneles.length > 0 && !('historialCredenciales' in oldPaneles[0])) {
+      let needsMigration = false;
+      if (oldPaneles.length > 0) {
+        if (!('historialCredenciales' in oldPaneles[0]) || !('costoMensual' in oldPaneles[0])) {
+          needsMigration = true;
+        }
+      }
+      if (needsMigration) {
         const migrated = oldPaneles.map((p: any) => ({
           id: p.id,
           nombre: p.nombre,
@@ -140,8 +150,9 @@ function migrateData() {
           servicioAsociado: p.servicioAsociado || '',
           estado: p.estado || 'activo',
           proveedor: p.proveedor || '',
-          credencialFechaInicio: p.fechaCompra || format(new Date(), 'yyyy-MM-dd'),
-          historialCredenciales: [],
+          costoMensual: p.costoMensual ?? 0,
+          credencialFechaInicio: p.credencialFechaInicio || p.fechaCompra || format(new Date(), 'yyyy-MM-dd'),
+          historialCredenciales: p.historialCredenciales || [],
         }));
         localStorage.setItem('paneles', JSON.stringify(migrated));
       }
@@ -159,12 +170,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [servicios, setServicios] = useState<Servicio[]>(() => loadFromStorage('servicios', []));
   const [suscripciones, setSuscripciones] = useState<Suscripcion[]>(() => loadFromStorage('suscripciones', []));
   const [transacciones, setTransacciones] = useState<Transaccion[]>(() => loadFromStorage('transacciones', []));
+  const [pagos, setPagos] = useState<Pago[]>(() => loadFromStorage('pagos', []));
 
   useEffect(() => { localStorage.setItem('paneles', JSON.stringify(paneles)); }, [paneles]);
   useEffect(() => { localStorage.setItem('clientes', JSON.stringify(clientes)); }, [clientes]);
   useEffect(() => { localStorage.setItem('servicios', JSON.stringify(servicios)); }, [servicios]);
   useEffect(() => { localStorage.setItem('suscripciones', JSON.stringify(suscripciones)); }, [suscripciones]);
   useEffect(() => { localStorage.setItem('transacciones', JSON.stringify(transacciones)); }, [transacciones]);
+  useEffect(() => { localStorage.setItem('pagos', JSON.stringify(pagos)); }, [pagos]);
 
   // --- Paneles ---
   const addPanel = useCallback((panel: Omit<Panel, 'id' | 'cuposUsados' | 'historialCredenciales'>) => {
@@ -324,6 +337,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setTransacciones(prev => prev.filter(t => t.id !== id));
   }, []);
 
+  // --- Pagos ---
+  const addPago = useCallback((pago: Omit<Pago, 'id'>) => {
+    setPagos(prev => [...prev, { ...pago, id: generateId() }]);
+  }, []);
+
+  const deletePago = useCallback((id: string) => {
+    setPagos(prev => prev.filter(p => p.id !== id));
+  }, []);
+
   // --- Helpers ---
   const getPanelById = useCallback((id: string) => paneles.find(p => p.id === id), [paneles]);
 
@@ -334,12 +356,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      paneles, clientes, servicios, suscripciones, transacciones,
+      paneles, clientes, servicios, suscripciones, transacciones, pagos,
       addPanel, updatePanel, deletePanel, rotarCredenciales,
       addCliente, addClienteConSuscripciones, updateCliente, deleteCliente,
       addServicio, updateServicio, deleteServicio, getServicioById,
       addSuscripcion, updateSuscripcion, deleteSuscripcion, getSuscripcionesByCliente,
       addTransaccion, deleteTransaccion,
+      addPago, deletePago,
       getPanelById, getCuposDisponibles,
     }}>
       {children}

@@ -36,6 +36,7 @@ const emptyForm = {
   capacidadTotal: 10,
   servicioAsociado: '',
   proveedor: '',
+  costoMensual: 0,
 };
 
 export default function PanelFormDialog({ open, onOpenChange, editing }: Props) {
@@ -55,6 +56,7 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
         capacidadTotal: editing.capacidadTotal,
         servicioAsociado: editing.servicioAsociado || '',
         proveedor: editing.proveedor || '',
+        costoMensual: editing.costoMensual ?? 0,
       });
       setHistorialLocal(editing.historialCredenciales || []);
     } else {
@@ -97,6 +99,7 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
         capacidadTotal: form.capacidadTotal,
         servicioAsociado: form.servicioAsociado,
         proveedor: form.proveedor,
+        costoMensual: form.costoMensual,
         credencialFechaInicio: caidaReportada ? format(new Date(), 'yyyy-MM-dd') : editing.credencialFechaInicio,
         historialCredenciales: historialLocal,
       });
@@ -107,6 +110,7 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
       addPanel({
         ...form,
         estado: 'activo',
+        costoMensual: form.costoMensual,
         credencialFechaInicio: format(new Date(), 'yyyy-MM-dd'),
       });
     }
@@ -174,9 +178,15 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Proveedor (opcional)</Label>
-            <Input value={form.proveedor} onChange={e => setForm(f => ({ ...f, proveedor: e.target.value }))} placeholder="De dónde lo compraste" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Proveedor (opcional)</Label>
+              <Input value={form.proveedor} onChange={e => setForm(f => ({ ...f, proveedor: e.target.value }))} placeholder="De dónde lo compraste" />
+            </div>
+            <div className="space-y-2">
+              <Label>Costo Mensual ($)</Label>
+              <Input type="number" min={0} step="0.01" value={form.costoMensual} onChange={e => setForm(f => ({ ...f, costoMensual: parseFloat(e.target.value) || 0 }))} placeholder="0.00" />
+            </div>
           </div>
 
           <Button type="submit" className="w-full">

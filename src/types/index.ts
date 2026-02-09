@@ -20,6 +20,7 @@ export interface Panel {
   servicioAsociado: string;
   estado: EstadoPanel;
   proveedor?: string;
+  costoMensual: number;
   credencialFechaInicio: string;
   historialCredenciales: CredencialHistorial[];
 }
@@ -58,6 +59,16 @@ export interface Transaccion {
   concepto: string;
   monto: number;
   categoria: string;
+  fecha: string;
+}
+
+export type MetodoPago = 'Transferencia' | 'Zelle' | 'PayPal' | 'Binance' | 'Efectivo';
+
+export interface Pago {
+  id: string;
+  clienteId: string;
+  monto: number;
+  metodo: MetodoPago;
   fecha: string;
 }
 
