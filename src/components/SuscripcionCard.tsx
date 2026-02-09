@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
-import { Suscripcion, EstadoSuscripcion } from '@/types';
+import { Suscripcion, EstadoSuscripcion, PaisCliente } from '@/types';
 import { format, addDays, differenceInDays, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Copy, Check, RefreshCw, XCircle, Trash2, Mail, Lock, Pencil, Save, X } from 'lucide-react';
@@ -16,6 +16,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+const PAIS_MONEDA_SYMBOL: Record<string, string> = {
+  Venezuela: '$',
+  Ecuador: '$',
+  Colombia: 'COP$',
+  Mexico: 'MXN$',
+};
+
+function getMonedaSymbol(pais?: PaisCliente): string {
+  return pais ? (PAIS_MONEDA_SYMBOL[pais] || '$') : '$';
+}
+
 interface Props {
   sub: Suscripcion;
   onRenovar: (sub: Suscripcion) => void;
@@ -24,18 +35,21 @@ interface Props {
 }
 
 export default function SuscripcionCard({ sub, onRenovar, onCancelar, onDelete }: Props) {
-  const { servicios, paneles, getCuposDisponibles, getServicioById, getPanelById, updateSuscripcion } = useData();
+  const { servicios, paneles, clientes, getCuposDisponibles, getServicioById, getPanelById, updateSuscripcion } = useData();
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     servicioId: sub.servicioId,
     panelId: sub.panelId,
-    precioCobrado: sub.precioCobrado,
+    precioCobrado: String(sub.precioCobrado),
     fechaInicio: sub.fechaInicio,
     fechaVencimiento: sub.fechaVencimiento,
     credencialEmail: sub.credencialEmail || '',
     credencialPassword: sub.credencialPassword || '',
   });
+
+  const cliente = clientes.find(c => c.id === sub.clienteId);
+  const monedaSymbol = getMonedaSymbol(cliente?.pais);
 
   const servicio = getServicioById(sub.servicioId);
   const panel = getPanelById(sub.panelId);
@@ -78,7 +92,7 @@ export default function SuscripcionCard({ sub, onRenovar, onCancelar, onDelete }
     setEditForm({
       servicioId: sub.servicioId,
       panelId: sub.panelId,
-      precioCobrado: sub.precioCobrado,
+      precioCobrado: String(sub.precioCobrado),
       fechaInicio: sub.fechaInicio,
       fechaVencimiento: sub.fechaVencimiento,
       credencialEmail: sub.credencialEmail || '',
@@ -96,7 +110,7 @@ export default function SuscripcionCard({ sub, onRenovar, onCancelar, onDelete }
       ...sub,
       servicioId: editForm.servicioId,
       panelId: editForm.panelId,
-      precioCobrado: editForm.precioCobrado,
+      precioCobrado: parseFloat(editForm.precioCobrado) || 0,
       fechaInicio: editForm.fechaInicio,
       fechaVencimiento: editForm.fechaVencimiento,
       credencialEmail: editForm.credencialEmail || undefined,
@@ -159,14 +173,14 @@ export default function SuscripcionCard({ sub, onRenovar, onCancelar, onDelete }
 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
-            <Label className="text-xs">Precio Cobrado</Label>
+            <Label className="text-xs">Precio Cobrado ({monedaSymbol})</Label>
             <Input
               type="number"
               min={0}
-              step={100}
+              step={0.01}
               className="h-8 text-xs"
               value={editForm.precioCobrado}
-              onChange={e => setEditForm(f => ({ ...f, precioCobrado: parseFloat(e.target.value) || 0 }))}
+              onChange={e => setEditForm(f => ({ ...f, precioCobrado: e.target.value }))}
             />
           </div>
           <div className="space-y-1.5">
@@ -237,7 +251,7 @@ export default function SuscripcionCard({ sub, onRenovar, onCancelar, onDelete }
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            {panel?.nombre || '—'} · ${sub.precioCobrado.toLocaleString()}
+            {panel?.nombre || '—'} · {monedaSymbol}{sub.precioCobrado.toLocaleString()}
           </p>
         </div>
         <div className="flex gap-1">
