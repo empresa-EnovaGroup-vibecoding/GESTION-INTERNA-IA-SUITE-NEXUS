@@ -1,3 +1,11 @@
+export type EstadoPanel = 'activo' | 'caido';
+
+export interface PanelHistorial {
+  fecha: string;
+  evento: 'activado' | 'caido' | 'reemplazo_de' | 'reemplazado_por';
+  panelRelacionadoId?: string;
+}
+
 export interface Panel {
   id: string;
   nombre: string;
@@ -7,6 +15,11 @@ export interface Panel {
   fechaExpiracion: string;
   capacidadTotal: number;
   cuposUsados: number;
+  servicioAsociado: string;
+  estado: EstadoPanel;
+  proveedor?: string;
+  reemplazadoPorId?: string;
+  historial: PanelHistorial[];
 }
 
 export interface Cliente {

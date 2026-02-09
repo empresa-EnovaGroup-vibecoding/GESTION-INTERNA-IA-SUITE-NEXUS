@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Panel, Cliente, Servicio, Suscripcion, Transaccion } from '@/types';
+import { Panel, Cliente, Servicio, Suscripcion, Transaccion, EstadoPanel } from '@/types';
 import { addDays, format } from 'date-fns';
+
+export type ReplacementOption =
+  | { type: 'existing'; panelId: string }
+  | { type: 'new'; panelData: Omit<Panel, 'id' | 'cuposUsados' | 'historial' | 'estado'> };
 
 interface DataContextType {
   paneles: Panel[];
@@ -9,9 +13,10 @@ interface DataContextType {
   suscripciones: Suscripcion[];
   transacciones: Transaccion[];
   // Paneles
-  addPanel: (panel: Omit<Panel, 'id' | 'cuposUsados'>) => void;
+  addPanel: (panel: Omit<Panel, 'id' | 'cuposUsados' | 'historial'>) => void;
   updatePanel: (panel: Panel) => void;
   deletePanel: (id: string) => void;
+  marcarPanelCaido: (panelId: string, replacement?: ReplacementOption) => void;
   // Clientes
   addCliente: (cliente: Omit<Cliente, 'id'>) => void;
   addClienteConSuscripciones: (cliente: Omit<Cliente, 'id'>, suscripciones: Omit<Suscripcion, 'id' | 'fechaVencimiento' | 'estado' | 'clienteId'>[]) => void;
@@ -131,6 +136,21 @@ function migrateData() {
         localStorage.setItem('suscripciones', JSON.stringify(migratedSubs));
       }
     }
+
+    // Migrate old paneles missing new fields
+    const panelesRaw = localStorage.getItem('paneles');
+    if (panelesRaw) {
+      const oldPaneles = JSON.parse(panelesRaw);
+      if (oldPaneles.length > 0 && !('historial' in oldPaneles[0])) {
+        const migrated = oldPaneles.map((p: any) => ({
+          ...p,
+          estado: p.estado || 'activo',
+          servicioAsociado: p.servicioAsociado || '',
+          historial: p.historial || [{ fecha: p.fechaCompra || format(new Date(), 'yyyy-MM-dd'), evento: 'activado' }],
+        }));
+        localStorage.setItem('paneles', JSON.stringify(migrated));
+      }
+    }
   } catch {
     // ignore migration errors
   }
@@ -152,8 +172,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { localStorage.setItem('transacciones', JSON.stringify(transacciones)); }, [transacciones]);
 
   // --- Paneles ---
-  const addPanel = useCallback((panel: Omit<Panel, 'id' | 'cuposUsados'>) => {
-    setPaneles(prev => [...prev, { ...panel, id: generateId(), cuposUsados: 0 }]);
+  const addPanel = useCallback((panel: Omit<Panel, 'id' | 'cuposUsados' | 'historial'>) => {
+    const now = format(new Date(), 'yyyy-MM-dd');
+    setPaneles(prev => [...prev, {
+      ...panel,
+      id: generateId(),
+      cuposUsados: 0,
+      estado: panel.estado || 'activo',
+      servicioAsociado: panel.servicioAsociado || '',
+      historial: [{ fecha: now, evento: 'activado' }],
+    }]);
   }, []);
 
   const updatePanel = useCallback((panel: Panel) => {
@@ -163,6 +191,93 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const deletePanel = useCallback((id: string) => {
     setPaneles(prev => prev.filter(p => p.id !== id));
     setSuscripciones(prev => prev.filter(s => s.panelId !== id));
+  }, []);
+
+  const marcarPanelCaido = useCallback((panelId: string, replacement?: ReplacementOption) => {
+    const now = format(new Date(), 'yyyy-MM-dd');
+
+    if (replacement?.type === 'new') {
+      // Create replacement panel first
+      const newId = generateId();
+      const newPanel: Panel = {
+        ...replacement.panelData,
+        id: newId,
+        cuposUsados: 0,
+        estado: 'activo',
+        historial: [
+          { fecha: now, evento: 'activado' },
+          { fecha: now, evento: 'reemplazo_de', panelRelacionadoId: panelId },
+        ],
+      };
+
+      // Move suscripciones
+      setSuscripciones(prev => prev.map(s =>
+        s.panelId === panelId ? { ...s, panelId: newId } : s
+      ));
+
+      // Update cupos
+      setPaneles(prev => {
+        const oldPanel = prev.find(p => p.id === panelId);
+        const movedCount = oldPanel?.cuposUsados || 0;
+        return [
+          ...prev.map(p => {
+            if (p.id === panelId) {
+              return {
+                ...p,
+                estado: 'caido' as EstadoPanel,
+                cuposUsados: 0,
+                reemplazadoPorId: newId,
+                historial: [...(p.historial || []), { fecha: now, evento: 'caido' as const }, { fecha: now, evento: 'reemplazado_por' as const, panelRelacionadoId: newId }],
+              };
+            }
+            return p;
+          }),
+          { ...newPanel, cuposUsados: movedCount },
+        ];
+      });
+    } else if (replacement?.type === 'existing') {
+      const targetId = replacement.panelId;
+
+      setSuscripciones(prev => prev.map(s =>
+        s.panelId === panelId ? { ...s, panelId: targetId } : s
+      ));
+
+      setPaneles(prev => {
+        const oldPanel = prev.find(p => p.id === panelId);
+        const movedCount = oldPanel?.cuposUsados || 0;
+        return prev.map(p => {
+          if (p.id === panelId) {
+            return {
+              ...p,
+              estado: 'caido' as EstadoPanel,
+              cuposUsados: 0,
+              reemplazadoPorId: targetId,
+              historial: [...(p.historial || []), { fecha: now, evento: 'caido' as const }, { fecha: now, evento: 'reemplazado_por' as const, panelRelacionadoId: targetId }],
+            };
+          }
+          if (p.id === targetId) {
+            return {
+              ...p,
+              cuposUsados: p.cuposUsados + movedCount,
+              historial: [...(p.historial || []), { fecha: now, evento: 'reemplazo_de' as const, panelRelacionadoId: panelId }],
+            };
+          }
+          return p;
+        });
+      });
+    } else {
+      // No replacement
+      setPaneles(prev => prev.map(p => {
+        if (p.id === panelId) {
+          return {
+            ...p,
+            estado: 'caido' as EstadoPanel,
+            historial: [...(p.historial || []), { fecha: now, evento: 'caido' as const }],
+          };
+        }
+        return p;
+      }));
+    }
   }, []);
 
   // --- Clientes ---
@@ -292,7 +407,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   return (
     <DataContext.Provider value={{
       paneles, clientes, servicios, suscripciones, transacciones,
-      addPanel, updatePanel, deletePanel,
+      addPanel, updatePanel, deletePanel, marcarPanelCaido,
       addCliente, addClienteConSuscripciones, updateCliente, deleteCliente,
       addServicio, updateServicio, deleteServicio, getServicioById,
       addSuscripcion, updateSuscripcion, deleteSuscripcion, getSuscripcionesByCliente,
