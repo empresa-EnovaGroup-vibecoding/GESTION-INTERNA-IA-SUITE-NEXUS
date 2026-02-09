@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Monitor, Users, DollarSign, Menu, X, Package, CalendarDays, LogOut } from 'lucide-react';
+import { LayoutDashboard, Monitor, Users, DollarSign, Menu, Package, CalendarDays } from 'lucide-react';
 import { PageView } from '@/types';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface AppLayoutProps {
   currentPage: PageView;
@@ -21,7 +20,7 @@ const navItems: { id: PageView; label: string; icon: React.ElementType }[] = [
 
 export default function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { signOut } = useAuth();
+  
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -75,14 +74,7 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
           })}
         </nav>
 
-        <div className="border-t border-sidebar-border p-4 space-y-2">
-          <button
-            onClick={signOut}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-destructive transition-all"
-          >
-            <LogOut className="h-4 w-4" />
-            Cerrar sesión
-          </button>
+        <div className="border-t border-sidebar-border p-4">
           <p className="text-[11px] text-sidebar-muted">v1.0 · Gestión Interna</p>
         </div>
       </aside>
