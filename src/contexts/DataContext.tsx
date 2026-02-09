@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { Panel, Cliente, Servicio, Suscripcion, Pago, Corte, EstadoPanel, CredencialHistorial } from '@/types';
 import { addDays, format, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 import { supabaseExternal } from '@/lib/supabaseExternal';
+import { PanelSchema, ClienteSchema, ServicioSchema, SuscripcionSchema, PagoSchema, CorteSchema, validateInput } from '@/lib/validationSchemas';
 
 interface DataContextType {
   paneles: Panel[];
@@ -234,6 +235,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // --- Paneles ---
   const addPanel = useCallback(async (panel: Omit<Panel, 'id' | 'cuposUsados' | 'historialCredenciales'>) => {
+    validateInput(PanelSchema, panel);
     const now = format(new Date(), 'yyyy-MM-dd');
     const newPanel: Panel = {
       ...panel, id: generateId(), cuposUsados: 0,
@@ -281,6 +283,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // --- Clientes ---
   const addCliente = useCallback(async (cliente: Omit<Cliente, 'id'>) => {
+    validateInput(ClienteSchema, cliente);
     const newCliente: Cliente = { ...cliente, id: generateId() };
     setClientes(prev => [...prev, newCliente]);
     await supabaseExternal.from('clientes').insert(clienteToRow(newCliente));
@@ -345,6 +348,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // --- Servicios ---
   const addServicio = useCallback(async (servicio: Omit<Servicio, 'id'>) => {
+    validateInput(ServicioSchema, servicio);
     const newServicio: Servicio = { ...servicio, id: generateId() };
     setServicios(prev => [...prev, newServicio]);
     await supabaseExternal.from('servicios').insert(servicioToRow(newServicio));
@@ -375,6 +379,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // --- Suscripciones ---
   const addSuscripcion = useCallback(async (suscripcion: Omit<Suscripcion, 'id' | 'fechaVencimiento' | 'estado'>) => {
+    validateInput(SuscripcionSchema, suscripcion);
     const fechaVencimiento = format(addDays(new Date(suscripcion.fechaInicio), 30), 'yyyy-MM-dd');
     const newSub: Suscripcion = { ...suscripcion, id: generateId(), fechaVencimiento, estado: 'activa' };
     setSuscripciones(prev => [...prev, newSub]);
@@ -422,6 +427,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // --- Pagos ---
   const addPago = useCallback(async (pago: Omit<Pago, 'id'>) => {
+    validateInput(PagoSchema, pago);
     const newPago: Pago = { ...pago, id: generateId() };
     setPagos(prev => [...prev, newPago]);
     await supabaseExternal.from('pagos').insert(pagoToRow(newPago));
@@ -439,6 +445,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // --- Cortes ---
   const addCorte = useCallback(async (corteData: Omit<Corte, 'id' | 'pagosIds'>) => {
+    validateInput(CorteSchema, corteData);
     const corteId = generateId();
     const monedaTarget = corteData.pais === 'Mexico' ? 'MXN' : 'COP';
     const corteDate = new Date(corteData.fecha);
