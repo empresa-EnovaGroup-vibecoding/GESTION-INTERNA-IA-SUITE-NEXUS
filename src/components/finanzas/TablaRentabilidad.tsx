@@ -52,6 +52,7 @@ export default function TablaRentabilidad() {
         <h3 className="text-sm font-semibold">Rentabilidad por Servicio</h3>
         <p className="text-xs text-muted-foreground mt-0.5">Comparativa de gastos vs ingresos por cada servicio</p>
       </div>
+      <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
@@ -102,6 +103,7 @@ export default function TablaRentabilidad() {
           )}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }

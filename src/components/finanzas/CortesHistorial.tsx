@@ -43,6 +43,7 @@ export default function CortesHistorial({ selectedDate }: Props) {
           </p>
         </div>
       </div>
+      <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
@@ -153,6 +154,7 @@ export default function CortesHistorial({ selectedDate }: Props) {
           })}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }

@@ -78,6 +78,7 @@ export default function TablaIngresos({ selectedDate }: Props) {
         <h3 className="text-sm font-semibold">Ingresos — Lo que cobro a clientes</h3>
         <p className="text-xs text-muted-foreground mt-0.5">Se genera automáticamente desde Clientes y Suscripciones. Todos los cálculos en USD.</p>
       </div>
+      <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
@@ -149,6 +150,7 @@ export default function TablaIngresos({ selectedDate }: Props) {
           </TableFooter>
         )}
       </Table>
+      </div>
     </div>
   );
 }

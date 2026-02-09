@@ -71,6 +71,7 @@ export default function ResumenPorPais({ selectedDate }: Props) {
           <p className="text-xs text-muted-foreground mt-0.5">Distribución de ingresos recibidos este mes</p>
         </div>
       </div>
+      <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
@@ -118,6 +119,7 @@ export default function ResumenPorPais({ selectedDate }: Props) {
           </TableRow>
         </TableFooter>
       </Table>
+      </div>
     </div>
   );
 }

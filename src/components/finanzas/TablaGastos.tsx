@@ -17,6 +17,7 @@ export default function TablaGastos({ panelesActivos, totalGastos }: Props) {
         <h3 className="text-sm font-semibold">Gastos — Lo que pago a proveedores</h3>
         <p className="text-xs text-muted-foreground mt-0.5">Se genera automáticamente desde la sección Paneles</p>
       </div>
+      <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
@@ -62,6 +63,7 @@ export default function TablaGastos({ panelesActivos, totalGastos }: Props) {
           </TableFooter>
         )}
       </Table>
+      </div>
     </div>
   );
 }
