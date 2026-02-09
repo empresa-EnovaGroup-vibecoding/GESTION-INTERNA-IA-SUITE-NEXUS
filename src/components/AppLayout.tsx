@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Monitor, Users, DollarSign, Menu, X, Package } from 'lucide-react';
+import { LayoutDashboard, Monitor, Users, DollarSign, Menu, X, Package, CalendarDays } from 'lucide-react';
 import { PageView } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -11,6 +11,7 @@ interface AppLayoutProps {
 
 const navItems: { id: PageView; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'calendario', label: 'Calendario', icon: CalendarDays },
   { id: 'paneles', label: 'Paneles', icon: Monitor },
   { id: 'clientes', label: 'Clientes', icon: Users },
   { id: 'finanzas', label: 'Finanzas', icon: DollarSign },

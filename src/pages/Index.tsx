@@ -3,6 +3,7 @@ import { PageView } from '@/types';
 import { DataProvider } from '@/contexts/DataContext';
 import AppLayout from '@/components/AppLayout';
 import Dashboard from '@/pages/Dashboard';
+import CalendarioPage from '@/pages/CalendarioPage';
 import PanelesPage from '@/pages/PanelesPage';
 import ClientesPage from '@/pages/ClientesPage';
 import FinanzasPage from '@/pages/FinanzasPage';
@@ -14,6 +15,7 @@ const Index = () => {
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard': return <Dashboard />;
+      case 'calendario': return <CalendarioPage />;
       case 'paneles': return <PanelesPage />;
       case 'clientes': return <ClientesPage />;
       case 'finanzas': return <FinanzasPage />;
