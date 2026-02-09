@@ -89,15 +89,6 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-4 text-center">
-            <button
-              type="button"
-              className="text-sm text-primary hover:text-primary/80 underline transition-colors"
-              onClick={() => { setIsSignUp(!isSignUp); setError(''); setMessage(''); }}
-            >
-              {isSignUp ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
-            </button>
-          </div>
         </CardContent>
       </Card>
     </div>
