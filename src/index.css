@@ -132,15 +132,6 @@
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
-
-  /* When content theme CSS vars are set, override bg-card and bg-background */
-  .bg-card {
-    background-color: var(--content-card-bg, hsl(var(--card)));
-  }
-
-  .bg-background {
-    background-color: var(--content-bg, hsl(var(--background)));
-  }
 }
 
 @layer utilities {
