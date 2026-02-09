@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   UserPlus, PlayCircle, XCircle, AlertTriangle,
-  DollarSign, RefreshCw, Clock,
+  DollarSign, RefreshCw,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -15,13 +15,13 @@ interface HistorialEvent {
   detalle?: string;
 }
 
-const EVENT_CONFIG: Record<HistorialEvent['tipo'], { icon: typeof UserPlus; color: string; label: string }> = {
-  registro:    { icon: UserPlus,      color: 'text-emerald-500', label: 'Registro' },
-  asignacion:  { icon: PlayCircle,    color: 'text-sky-500',     label: 'Servicio asignado' },
-  pago:        { icon: DollarSign,    color: 'text-blue-500',    label: 'Pago recibido' },
-  renovacion:  { icon: RefreshCw,     color: 'text-green-500',   label: 'Renovación' },
-  cancelacion: { icon: XCircle,       color: 'text-destructive', label: 'Cancelación' },
-  vencimiento: { icon: AlertTriangle, color: 'text-warning',     label: 'Vencimiento' },
+const EVENT_CONFIG: Record<HistorialEvent['tipo'], { icon: typeof UserPlus; color: string }> = {
+  registro:    { icon: UserPlus,      color: 'text-emerald-500' },
+  asignacion:  { icon: PlayCircle,    color: 'text-sky-500' },
+  pago:        { icon: DollarSign,    color: 'text-blue-500' },
+  renovacion:  { icon: RefreshCw,     color: 'text-green-500' },
+  cancelacion: { icon: XCircle,       color: 'text-destructive' },
+  vencimiento: { icon: AlertTriangle, color: 'text-warning' },
 };
 
 interface Props {
@@ -36,7 +36,7 @@ export default function ClienteHistorial({ clienteId }: Props) {
     const clienteSubs = suscripciones.filter(s => s.clienteId === clienteId);
     const clientePagos = pagos.filter(p => p.clienteId === clienteId);
 
-    // Find registration date (earliest subscription start)
+    // Registration date = earliest subscription start
     if (clienteSubs.length > 0) {
       const earliest = [...clienteSubs].sort(
         (a, b) => new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime()
@@ -48,35 +48,30 @@ export default function ClienteHistorial({ clienteId }: Props) {
       });
     }
 
-    // Subscriptions
     for (const sub of clienteSubs) {
       const servicio = getServicioById(sub.servicioId);
       const panel = sub.panelId ? getPanelById(sub.panelId) : null;
-      const servicioNombre = servicio?.nombre || 'Servicio desconocido';
-      const panelInfo = panel ? ` (Panel: ${panel.nombre})` : '';
+      const nombre = servicio?.nombre || 'Servicio desconocido';
+      const panelInfo = panel ? ` · Panel: ${panel.nombre}` : '';
 
-      // Assignment event
+      // Assignment
       items.push({
         fecha: sub.fechaInicio,
         tipo: 'asignacion',
-        descripcion: `${servicioNombre} asignado`,
+        descripcion: `${nombre} asignado`,
         detalle: `$${sub.precioCobrado} USD${panelInfo}`,
       });
 
-      // If the subscription start is significantly later than registration,
-      // it might be a renewal (fechaInicio updated)
-      // We detect renewals by checking if fechaVencimiento is ~30 days from fechaInicio
-      // and fechaInicio is NOT the earliest date for this service
-      const sameSvcSubs = clienteSubs
-        .filter(s => s.servicioId === sub.servicioId && s.id !== sub.id);
-      const isRenewal = sameSvcSubs.some(s =>
-        new Date(s.fechaInicio).getTime() < new Date(sub.fechaInicio).getTime()
+      // Detect renewal: same service has an older subscription
+      const isRenewal = clienteSubs.some(
+        s => s.servicioId === sub.servicioId && s.id !== sub.id &&
+          new Date(s.fechaInicio).getTime() < new Date(sub.fechaInicio).getTime()
       );
       if (isRenewal) {
         items.push({
           fecha: sub.fechaInicio,
           tipo: 'renovacion',
-          descripcion: `${servicioNombre} renovado`,
+          descripcion: `${nombre} renovado`,
           detalle: `Vence: ${format(new Date(sub.fechaVencimiento), 'dd MMM yyyy', { locale: es })}`,
         });
       }
@@ -86,73 +81,57 @@ export default function ClienteHistorial({ clienteId }: Props) {
         items.push({
           fecha: sub.fechaVencimiento,
           tipo: 'cancelacion',
-          descripcion: `${servicioNombre} cancelado`,
+          descripcion: `${nombre} cancelado`,
         });
       }
 
-      // Expiration (vencida)
-      if (sub.estado === 'vencida') {
+      // Expired
+      if (sub.estado === 'vencida' || (sub.estado === 'activa' && new Date(sub.fechaVencimiento) < new Date())) {
         items.push({
           fecha: sub.fechaVencimiento,
           tipo: 'vencimiento',
-          descripcion: `${servicioNombre} venció`,
-        });
-      }
-
-      // Active but past due
-      if (sub.estado === 'activa' && new Date(sub.fechaVencimiento) < new Date()) {
-        items.push({
-          fecha: sub.fechaVencimiento,
-          tipo: 'vencimiento',
-          descripcion: `${servicioNombre} venció (sin renovar)`,
+          descripcion: `${nombre} venció${sub.estado === 'activa' ? ' (sin renovar)' : ''}`,
         });
       }
     }
 
     // Payments
     for (const pago of clientePagos) {
-      const monedaInfo = pago.montoOriginal && pago.moneda && pago.moneda !== 'USD'
+      const monedaExtra = pago.montoOriginal && pago.moneda && pago.moneda !== 'USD'
         ? ` (${pago.montoOriginal} ${pago.moneda})`
         : '';
       items.push({
         fecha: pago.fecha,
         tipo: 'pago',
-        descripcion: `Pago de $${pago.monto} USD${monedaInfo}`,
+        descripcion: `Pago de $${pago.monto} USD${monedaExtra}`,
         detalle: `Método: ${pago.metodo}`,
       });
     }
 
-    // Sort descending (most recent first), deduplicate registro if same date as first asignacion
+    // Sort descending
     items.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
     return items;
   }, [clienteId, suscripciones, pagos, getServicioById, getPanelById]);
 
   if (events.length === 0) {
     return (
-      <p className="text-xs text-muted-foreground py-4 text-center">
-        Sin actividad registrada
-      </p>
+      <p className="text-xs text-muted-foreground py-4 text-center">Sin actividad registrada</p>
     );
   }
 
   return (
     <ScrollArea className="max-h-64">
       <div className="relative pl-6">
-        {/* Vertical line */}
         <div className="absolute left-[9px] top-2 bottom-2 w-px bg-border" />
-
-        <div className="space-y-3">
+        <div className="space-y-3 py-1">
           {events.map((ev, idx) => {
             const config = EVENT_CONFIG[ev.tipo];
             const Icon = config.icon;
             return (
               <div key={idx} className="relative flex items-start gap-3">
-                {/* Dot/icon */}
                 <div className={`absolute -left-6 mt-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-background border border-border ${config.color}`}>
                   <Icon className="h-3 w-3" />
                 </div>
-
-                {/* Content */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium">{ev.descripcion}</span>
