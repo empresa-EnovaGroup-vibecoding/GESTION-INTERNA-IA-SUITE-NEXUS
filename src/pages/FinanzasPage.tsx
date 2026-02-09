@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
+import { format as fmtDate } from 'date-fns';
 import { format, isSameMonth, addMonths, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -15,6 +16,7 @@ import RegistrarPagoDialog from '@/components/finanzas/RegistrarPagoDialog';
 import NuevoCorteDialog from '@/components/finanzas/NuevoCorteDialog';
 import CortesHistorial from '@/components/finanzas/CortesHistorial';
 import ReporteSemanalDialog from '@/components/finanzas/ReporteSemanalDialog';
+import MetaMensual from '@/components/finanzas/MetaMensual';
 
 export default function FinanzasPage() {
   const { paneles, suscripciones, pagos, clientes, cortes } = useData();
@@ -129,6 +131,9 @@ export default function FinanzasPage() {
         clientesQueDeben={clientesQueDeben}
         pendienteConvertir={pendienteConvertir}
       />
+
+      {/* Monthly goal */}
+      <MetaMensual totalIngresos={totalIngresos} mesKey={fmtDate(selectedDate, 'yyyy-MM')} />
 
       {/* Chart */}
       <GananciaChart />
