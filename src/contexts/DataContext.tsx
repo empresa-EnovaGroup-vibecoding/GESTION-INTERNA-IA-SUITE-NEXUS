@@ -35,6 +35,7 @@ interface DataContextType {
   deleteTransaccion: (id: string) => void;
   // Pagos
   addPago: (pago: Omit<Pago, 'id'>) => void;
+  updatePago: (pago: Pago) => void;
   deletePago: (id: string) => void;
   // Cortes
   addCorte: (corte: Omit<Corte, 'id' | 'pagosIds'>) => void;
@@ -350,6 +351,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setPagos(prev => [...prev, { ...pago, id: generateId() }]);
   }, []);
 
+  const updatePago = useCallback((pago: Pago) => {
+    setPagos(prev => prev.map(p => p.id === pago.id ? pago : p));
+  }, []);
+
   const deletePago = useCallback((id: string) => {
     setPagos(prev => prev.filter(p => p.id !== id));
   }, []);
@@ -417,7 +422,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       addServicio, updateServicio, deleteServicio, getServicioById,
       addSuscripcion, updateSuscripcion, deleteSuscripcion, getSuscripcionesByCliente,
       addTransaccion, deleteTransaccion,
-      addPago, deletePago,
+      addPago, updatePago, deletePago,
       addCorte, deleteCorte,
       getPanelById, getCuposDisponibles,
     }}>
