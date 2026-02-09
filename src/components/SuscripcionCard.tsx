@@ -40,7 +40,7 @@ export default function SuscripcionCard({ sub, onRenovar, onCancelar, onDelete }
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     servicioId: sub.servicioId,
-    panelId: sub.panelId,
+    panelId: sub.panelId || '',
     precioCobrado: String(sub.precioCobrado),
     fechaInicio: sub.fechaInicio,
     fechaVencimiento: sub.fechaVencimiento,
@@ -52,7 +52,7 @@ export default function SuscripcionCard({ sub, onRenovar, onCancelar, onDelete }
   const monedaSymbol = getMonedaSymbol(cliente?.pais);
 
   const servicio = getServicioById(sub.servicioId);
-  const panel = getPanelById(sub.panelId);
+  const panel = sub.panelId ? getPanelById(sub.panelId) : undefined;
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
@@ -91,7 +91,7 @@ export default function SuscripcionCard({ sub, onRenovar, onCancelar, onDelete }
   const handleStartEdit = () => {
     setEditForm({
       servicioId: sub.servicioId,
-      panelId: sub.panelId,
+      panelId: sub.panelId || '',
       precioCobrado: String(sub.precioCobrado),
       fechaInicio: sub.fechaInicio,
       fechaVencimiento: sub.fechaVencimiento,
@@ -109,7 +109,7 @@ export default function SuscripcionCard({ sub, onRenovar, onCancelar, onDelete }
     updateSuscripcion({
       ...sub,
       servicioId: editForm.servicioId,
-      panelId: editForm.panelId,
+      panelId: editForm.panelId || undefined,
       precioCobrado: parseFloat(editForm.precioCobrado) || 0,
       fechaInicio: editForm.fechaInicio,
       fechaVencimiento: editForm.fechaVencimiento,
@@ -153,11 +153,12 @@ export default function SuscripcionCard({ sub, onRenovar, onCancelar, onDelete }
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Panel</Label>
-            <Select value={editForm.panelId} onValueChange={v => setEditForm(f => ({ ...f, panelId: v }))}>
+            <Select value={editForm.panelId || '_none'} onValueChange={v => setEditForm(f => ({ ...f, panelId: v === '_none' ? '' : v }))}>
               <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Seleccionar" />
+                <SelectValue placeholder="Sin panel" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="_none">Sin panel (credencial directa)</SelectItem>
                 {paneles.map(p => {
                   const disponibles = getCuposDisponibles(p.id) + (p.id === sub.panelId ? 1 : 0);
                   return (
@@ -251,7 +252,7 @@ export default function SuscripcionCard({ sub, onRenovar, onCancelar, onDelete }
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            {panel?.nombre || '—'} · {monedaSymbol}{sub.precioCobrado.toLocaleString()}
+            {panel?.nombre || 'Credencial directa'} · {monedaSymbol}{sub.precioCobrado.toLocaleString()}
           </p>
         </div>
         <div className="flex gap-1">

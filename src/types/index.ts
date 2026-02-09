@@ -46,7 +46,7 @@ export interface Suscripcion {
   id: string;
   clienteId: string;
   servicioId: string;
-  panelId: string;
+  panelId?: string;
   estado: EstadoSuscripcion;
   fechaInicio: string;
   fechaVencimiento: string; // auto: fechaInicio + 30 days

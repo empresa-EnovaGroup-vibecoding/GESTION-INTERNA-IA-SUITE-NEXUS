@@ -15,7 +15,7 @@ import {
 
 export interface PendingSuscripcion {
   servicioId: string;
-  panelId: string;
+  panelId?: string;
   fechaInicio: string;
   precioCobrado: number;
   credencialEmail?: string;
@@ -48,9 +48,10 @@ export default function ServicioFormInline({ items, onAdd, onRemove }: Props) {
   };
 
   const handleAdd = () => {
-    if (!form.servicioId || !form.panelId) return;
+    if (!form.servicioId) return;
     onAdd({
       ...form,
+      panelId: form.panelId || undefined,
       credencialEmail: form.credencialEmail || undefined,
       credencialPassword: form.credencialPassword || undefined,
       _tempId: Date.now().toString(36) + Math.random().toString(36).substr(2),
@@ -89,7 +90,7 @@ export default function ServicioFormInline({ items, onAdd, onRemove }: Props) {
         <div className="space-y-2">
           {items.map(item => {
             const servicio = getServicioById(item.servicioId);
-            const panel = getPanelById(item.panelId);
+            const panel = item.panelId ? getPanelById(item.panelId) : undefined;
             const fechaVenc = format(addDays(new Date(item.fechaInicio), 30), 'dd/MM/yyyy');
             return (
               <div
@@ -104,7 +105,7 @@ export default function ServicioFormInline({ items, onAdd, onRemove }: Props) {
                     </span>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
-                    {panel?.nombre || '—'} · Vence: {fechaVenc}
+                    {panel?.nombre || 'Credencial directa'} · Vence: {fechaVenc}
                     {item.credencialEmail && ` · 📧 ${item.credencialEmail}`}
                   </p>
                 </div>
@@ -145,11 +146,12 @@ export default function ServicioFormInline({ items, onAdd, onRemove }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Panel</Label>
-              <Select value={form.panelId} onValueChange={(v) => setForm(f => ({ ...f, panelId: v }))}>
+              <Select value={form.panelId || '_none'} onValueChange={(v) => setForm(f => ({ ...f, panelId: v === '_none' ? '' : v }))}>
                 <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder="Seleccionar" />
+                  <SelectValue placeholder="Sin panel" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="_none">Sin panel (credencial directa)</SelectItem>
                   {paneles.map(p => {
                     const disponibles = getCuposDisponibles(p.id) - getPendingCupos(p.id);
                     return (
@@ -210,7 +212,7 @@ export default function ServicioFormInline({ items, onAdd, onRemove }: Props) {
             type="button"
             size="sm"
             className="w-full text-xs"
-            disabled={!form.panelId || !form.servicioId}
+            disabled={!form.servicioId}
             onClick={handleAdd}
           >
             Añadir a la Lista

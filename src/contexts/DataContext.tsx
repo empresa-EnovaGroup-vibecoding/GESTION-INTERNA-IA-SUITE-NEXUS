@@ -292,9 +292,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addSuscripcion = useCallback((suscripcion: Omit<Suscripcion, 'id' | 'fechaVencimiento' | 'estado'>) => {
     const fechaVencimiento = format(addDays(new Date(suscripcion.fechaInicio), 30), 'yyyy-MM-dd');
     setSuscripciones(prev => [...prev, { ...suscripcion, id: generateId(), fechaVencimiento, estado: 'activa' }]);
-    setPaneles(prev => prev.map(p =>
-      p.id === suscripcion.panelId ? { ...p, cuposUsados: p.cuposUsados + 1 } : p
-    ));
+    if (suscripcion.panelId) {
+      setPaneles(prev => prev.map(p =>
+        p.id === suscripcion.panelId ? { ...p, cuposUsados: p.cuposUsados + 1 } : p
+      ));
+    }
   }, []);
 
   const updateSuscripcion = useCallback((suscripcion: Suscripcion) => {
@@ -302,8 +304,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const old = prev.find(s => s.id === suscripcion.id);
       if (old && old.panelId !== suscripcion.panelId) {
         setPaneles(p => p.map(panel => {
-          if (panel.id === old.panelId) return { ...panel, cuposUsados: Math.max(0, panel.cuposUsados - 1) };
-          if (panel.id === suscripcion.panelId) return { ...panel, cuposUsados: panel.cuposUsados + 1 };
+          if (old.panelId && panel.id === old.panelId) return { ...panel, cuposUsados: Math.max(0, panel.cuposUsados - 1) };
+          if (suscripcion.panelId && panel.id === suscripcion.panelId) return { ...panel, cuposUsados: panel.cuposUsados + 1 };
           return panel;
         }));
       }
@@ -314,7 +316,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const deleteSuscripcion = useCallback((id: string) => {
     setSuscripciones(prev => {
       const sub = prev.find(s => s.id === id);
-      if (sub) {
+      if (sub?.panelId) {
         setPaneles(p => p.map(panel =>
           panel.id === sub.panelId ? { ...panel, cuposUsados: Math.max(0, panel.cuposUsados - 1) } : panel
         ));
