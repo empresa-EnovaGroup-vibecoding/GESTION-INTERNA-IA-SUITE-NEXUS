@@ -15,14 +15,14 @@ export function getWhatsAppNotificationUrl(
   let mensaje = '';
 
   switch (tipo) {
-    case 'proximo':
-      mensaje = `Hola ${cliente.nombre} 👋\n\nTe recordamos que tu suscripción de *${servicioNombre}* vence el *${fechaVenc}*.\n\n¿Deseas renovarla? Estamos para ayudarte. 🙌`;
-      break;
     case 'hoy':
-      mensaje = `Hola ${cliente.nombre} 👋\n\n⚠️ Tu suscripción de *${servicioNombre}* *vence hoy* (${fechaVenc}).\n\nPara no perder el acceso, renueva ahora. ¡Escríbenos! 💬`;
+      mensaje = `Hola ${cliente.nombre}! Tu suscripción de ${servicioNombre} vence hoy ${fechaVenc}. ¿Quieres renovar? Responde SI para renovar 🙌`;
+      break;
+    case 'proximo':
+      mensaje = `Hola ${cliente.nombre}! Tu suscripción de ${servicioNombre} vence el ${fechaVenc}. ¿Te lo renuevo para que no pierdas acceso? 💬`;
       break;
     case 'vencido':
-      mensaje = `Hola ${cliente.nombre} 👋\n\nTu suscripción de *${servicioNombre}* venció el *${fechaVenc}*.\n\n¿Te gustaría renovarla? Te ayudamos enseguida. 🚀`;
+      mensaje = `Hola ${cliente.nombre}! Tu suscripción de ${servicioNombre} venció el ${fechaVenc}. ¿Quieres renovar para seguir usando el servicio? 🚀`;
       break;
   }
 
