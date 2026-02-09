@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { AlertTriangle, Eye, EyeOff, Copy, Check, History, Info, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -37,6 +38,7 @@ const emptyForm = {
   servicioAsociado: '',
   proveedor: '',
   costoMensual: '',
+  notas: '',
 };
 
 export default function PanelFormDialog({ open, onOpenChange, editing }: Props) {
@@ -57,6 +59,7 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
         servicioAsociado: editing.servicioAsociado || '',
         proveedor: editing.proveedor || '',
         costoMensual: editing.costoMensual != null ? String(editing.costoMensual) : '',
+        notas: editing.notas || '',
       });
       setHistorialLocal(editing.historialCredenciales || []);
     } else {
@@ -100,6 +103,7 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
         servicioAsociado: form.servicioAsociado,
         proveedor: form.proveedor,
         costoMensual: parseFloat(form.costoMensual) || 0,
+        notas: form.notas || undefined,
         credencialFechaInicio: caidaReportada ? format(new Date(), 'yyyy-MM-dd') : editing.credencialFechaInicio,
         historialCredenciales: historialLocal,
       });
@@ -111,6 +115,7 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
         ...form,
         estado: 'activo',
         costoMensual: parseFloat(form.costoMensual) || 0,
+        notas: form.notas || undefined,
         credencialFechaInicio: format(new Date(), 'yyyy-MM-dd'),
       });
     }
@@ -187,6 +192,11 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
               <Label>Costo Mensual ($)</Label>
               <Input type="text" inputMode="decimal" value={form.costoMensual} onChange={e => { const v = e.target.value; if (v === '' || /^\d*\.?\d*$/.test(v)) setForm(f => ({ ...f, costoMensual: v })); }} placeholder="0.00" />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Notas (opcional)</Label>
+            <Textarea value={form.notas} onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} placeholder="Notas adicionales sobre este panel..." rows={3} />
           </div>
 
           <Button type="submit" className="w-full">

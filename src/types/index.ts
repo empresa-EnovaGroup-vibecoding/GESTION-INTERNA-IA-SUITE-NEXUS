@@ -23,6 +23,7 @@ export interface Panel {
   costoMensual: number;
   credencialFechaInicio: string;
   historialCredenciales: CredencialHistorial[];
+  notas?: string;
 }
 
 export type PaisCliente = 'Venezuela' | 'Ecuador' | 'Colombia' | 'Mexico';
