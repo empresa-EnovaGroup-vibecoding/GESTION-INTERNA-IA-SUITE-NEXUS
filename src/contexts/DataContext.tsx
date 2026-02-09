@@ -22,7 +22,7 @@ interface DataContextType {
   deleteServicio: (id: string) => void;
   getServicioById: (id: string) => Servicio | undefined;
   // Suscripciones
-  addSuscripcion: (suscripcion: Omit<Suscripcion, 'id' | 'fechaVencimiento'>) => void;
+  addSuscripcion: (suscripcion: Omit<Suscripcion, 'id' | 'fechaVencimiento' | 'estado'>) => void;
   updateSuscripcion: (suscripcion: Suscripcion) => void;
   deleteSuscripcion: (id: string) => void;
   getSuscripcionesByCliente: (clienteId: string) => Suscripcion[];
@@ -69,8 +69,10 @@ function migrateData() {
                 clienteId: old.id,
                 servicioId: '',
                 panelId: old.panelId,
+                estado: 'activa',
                 fechaInicio: old.fechaInicio,
                 fechaVencimiento: old.fechaVencimiento || format(addDays(new Date(old.fechaInicio), 30), 'yyyy-MM-dd'),
+                precioCobrado: 0,
               });
             }
           }
@@ -107,12 +109,25 @@ function migrateData() {
           clienteId: sub.clienteId,
           servicioId: servicioMap.get(sub.servicio || 'General') || '',
           panelId: sub.panelId,
+          estado: sub.estado || 'activa',
           fechaInicio: sub.fechaInicio,
           fechaVencimiento: sub.fechaVencimiento,
+          precioCobrado: sub.precioCobrado ?? 0,
+          credencialEmail: sub.credencialEmail,
+          credencialPassword: sub.credencialPassword,
+          notas: sub.notas,
         }));
 
         localStorage.setItem('suscripciones', JSON.stringify(migratedSubs));
         localStorage.setItem('servicios', JSON.stringify(servicios));
+      } else if (subs.length > 0 && !('estado' in subs[0])) {
+        // Migrate suscripciones that have servicioId but missing new fields
+        const migratedSubs = subs.map((sub: any) => ({
+          ...sub,
+          estado: sub.estado || 'activa',
+          precioCobrado: sub.precioCobrado ?? 0,
+        }));
+        localStorage.setItem('suscripciones', JSON.stringify(migratedSubs));
       }
     }
   } catch {
@@ -195,9 +210,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const getServicioById = useCallback((id: string) => servicios.find(s => s.id === id), [servicios]);
 
   // --- Suscripciones ---
-  const addSuscripcion = useCallback((suscripcion: Omit<Suscripcion, 'id' | 'fechaVencimiento'>) => {
+  const addSuscripcion = useCallback((suscripcion: Omit<Suscripcion, 'id' | 'fechaVencimiento' | 'estado'>) => {
     const fechaVencimiento = format(addDays(new Date(suscripcion.fechaInicio), 30), 'yyyy-MM-dd');
-    setSuscripciones(prev => [...prev, { ...suscripcion, id: generateId(), fechaVencimiento }]);
+    setSuscripciones(prev => [...prev, { ...suscripcion, id: generateId(), fechaVencimiento, estado: 'activa' }]);
     setPaneles(prev => prev.map(p =>
       p.id === suscripcion.panelId ? { ...p, cuposUsados: p.cuposUsados + 1 } : p
     ));

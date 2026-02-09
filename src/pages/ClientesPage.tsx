@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
-import { Cliente, Suscripcion } from '@/types';
-import { isBefore, isToday, startOfDay } from 'date-fns';
-import { Plus, Trash2, Edit2, Phone, ChevronDown, ChevronUp } from 'lucide-react';
+import { Cliente } from '@/types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Plus, Trash2, Edit2, Phone, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -50,8 +49,7 @@ export default function ClientesPage() {
   const getServiciosLabel = (clienteId: string): string => {
     const subs = getSuscripcionesByCliente(clienteId);
     if (subs.length === 0) return '—';
-    const hoy = startOfDay(new Date());
-    const activos = subs.filter(s => !isBefore(startOfDay(new Date(s.fechaVencimiento)), hoy));
+    const activos = subs.filter(s => s.estado === 'activa');
     if (activos.length === 0) return `${subs.length} vencido${subs.length > 1 ? 's' : ''}`;
     return activos.map(s => getServicioById(s.servicioId)?.nombre || '?').join(' + ');
   };
@@ -59,18 +57,17 @@ export default function ClientesPage() {
   const getEstadoGlobal = (clienteId: string) => {
     const subs = getSuscripcionesByCliente(clienteId);
     if (subs.length === 0) return 'sin-servicio';
-    const hoy = startOfDay(new Date());
-    const hayVencido = subs.some(s => isBefore(startOfDay(new Date(s.fechaVencimiento)), hoy));
-    const hayHoy = subs.some(s => isToday(new Date(s.fechaVencimiento)));
+    const hayVencido = subs.some(s => s.estado === 'vencida');
+    const hayCancelada = subs.every(s => s.estado === 'cancelada');
+    if (hayCancelada) return 'cancelado';
     if (hayVencido) return 'vencido';
-    if (hayHoy) return 'hoy';
     return 'activo';
   };
 
   const estadoBadge = (estado: string) => {
     switch (estado) {
       case 'vencido': return 'alert-badge bg-destructive/10 text-destructive';
-      case 'hoy': return 'alert-badge bg-warning/10 text-warning';
+      case 'cancelado': return 'alert-badge bg-muted text-muted-foreground';
       case 'sin-servicio': return 'alert-badge bg-muted text-muted-foreground';
       default: return 'alert-badge bg-success/10 text-success';
     }
@@ -79,7 +76,7 @@ export default function ClientesPage() {
   const estadoLabel = (estado: string) => {
     switch (estado) {
       case 'vencido': return 'Vencido';
-      case 'hoy': return 'Vence hoy';
+      case 'cancelado': return 'Cancelado';
       case 'sin-servicio': return 'Sin servicios';
       default: return 'Activo';
     }
@@ -206,24 +203,25 @@ export default function ClientesPage() {
                             {subs.map(sub => {
                               const panel = getPanelById(sub.panelId);
                               const servicio = getServicioById(sub.servicioId);
-                              const vencido = isBefore(startOfDay(new Date(sub.fechaVencimiento)), startOfDay(new Date()));
-                              const hoy = isToday(new Date(sub.fechaVencimiento));
                               return (
                                 <div key={sub.id} className="flex items-center justify-between rounded-md bg-card p-2.5 text-xs">
                                   <div className="flex items-center gap-3">
                                     <span className="font-medium">{servicio?.nombre || '?'}</span>
                                     <span className="text-muted-foreground">Panel: {panel?.nombre || '—'}</span>
+                                    {sub.precioCobrado > 0 && (
+                                      <span className="text-muted-foreground">${sub.precioCobrado.toLocaleString()}</span>
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-3">
                                     <span className="text-muted-foreground">
                                       {format(new Date(sub.fechaInicio), 'dd MMM', { locale: es })} → {format(new Date(sub.fechaVencimiento), 'dd MMM yyyy', { locale: es })}
                                     </span>
                                     <span className={
-                                      vencido ? 'alert-badge bg-destructive/10 text-destructive' :
-                                      hoy ? 'alert-badge bg-warning/10 text-warning' :
-                                      'alert-badge bg-success/10 text-success'
+                                      sub.estado === 'activa' ? 'alert-badge bg-success/10 text-success' :
+                                      sub.estado === 'vencida' ? 'alert-badge bg-destructive/10 text-destructive' :
+                                      'alert-badge bg-muted text-muted-foreground'
                                     }>
-                                      {vencido ? 'Vencido' : hoy ? 'Hoy' : 'Activo'}
+                                      {sub.estado === 'activa' ? 'Activa' : sub.estado === 'vencida' ? 'Vencida' : 'Cancelada'}
                                     </span>
                                   </div>
                                 </div>

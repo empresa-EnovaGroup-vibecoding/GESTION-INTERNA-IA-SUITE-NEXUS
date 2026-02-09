@@ -21,13 +21,20 @@ export interface Servicio {
   precioBase: number;
 }
 
+export type EstadoSuscripcion = 'activa' | 'vencida' | 'cancelada';
+
 export interface Suscripcion {
   id: string;
   clienteId: string;
   servicioId: string;
   panelId: string;
+  estado: EstadoSuscripcion;
   fechaInicio: string;
   fechaVencimiento: string; // auto: fechaInicio + 30 days
+  precioCobrado: number;
+  credencialEmail?: string;
+  credencialPassword?: string;
+  notas?: string;
 }
 
 export interface Transaccion {
