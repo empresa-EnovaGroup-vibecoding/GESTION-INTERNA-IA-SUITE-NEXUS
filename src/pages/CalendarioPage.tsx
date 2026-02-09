@@ -9,13 +9,16 @@ import { es } from 'date-fns/locale';
 import {
   ChevronLeft, ChevronRight, RefreshCw, CreditCard,
   UserPlus, AlertTriangle, X, Scissors, GripVertical,
+  Filter, DollarSign,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Suscripcion, Pago, Cliente } from '@/types';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 type ViewMode = 'month' | 'week';
+type EventFilter = 'todo' | 'pagos' | 'vencimientos' | 'renovaciones' | 'nuevos';
 
 interface DayEvents {
   date: Date;
@@ -23,12 +26,21 @@ interface DayEvents {
   vencimientos: { sub: Suscripcion; cliente: Cliente }[];
   pagos: Pago[];
   nuevosClientes: Cliente[];
+  suscripcionesCreadas: { sub: Suscripcion; cliente: Cliente; servicioNombre: string }[];
 }
 
 interface DragData {
   type: 'renovacion' | 'vencimiento' | 'pago' | 'nuevo';
   id: string;
 }
+
+const FILTER_OPTIONS: { value: EventFilter; label: string; icon: React.ReactNode }[] = [
+  { value: 'todo', label: 'Todo', icon: <Filter className="h-3 w-3" /> },
+  { value: 'pagos', label: 'Pagos', icon: <CreditCard className="h-3 w-3" /> },
+  { value: 'vencimientos', label: 'Vencimientos', icon: <AlertTriangle className="h-3 w-3" /> },
+  { value: 'renovaciones', label: 'Renovaciones', icon: <RefreshCw className="h-3 w-3" /> },
+  { value: 'nuevos', label: 'Nuevos clientes', icon: <UserPlus className="h-3 w-3" /> },
+];
 
 export default function CalendarioPage() {
   const {
@@ -40,6 +52,7 @@ export default function CalendarioPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [selectedDay, setSelectedDay] = useState<DayEvents | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<EventFilter>('todo');
 
   const getCliente = useCallback((id: string) => clientes.find(c => c.id === id), [clientes]);
 
@@ -47,15 +60,32 @@ export default function CalendarioPage() {
   const buildDayEvents = useCallback((date: Date): DayEvents => {
     const dateStr = format(date, 'yyyy-MM-dd');
 
-    const renovaciones: { sub: Suscripcion; cliente: Cliente }[] = [];
+    const renovaciones: DayEvents['renovaciones'] = [];
+    const suscripcionesCreadas: DayEvents['suscripcionesCreadas'] = [];
+
     suscripciones.forEach(s => {
       if (s.fechaInicio === dateStr && s.estado === 'activa') {
         const cliente = getCliente(s.clienteId);
-        if (cliente) renovaciones.push({ sub: s, cliente });
+        if (!cliente) return;
+
+        const servicio = getServicioById(s.servicioId);
+        const servicioNombre = servicio?.nombre || 'Sin servicio';
+
+        // It's a renewal if there's an older sub with the same service
+        const isRenewal = suscripciones.some(
+          other => other.clienteId === s.clienteId && other.servicioId === s.servicioId &&
+            other.id !== s.id && new Date(other.fechaInicio).getTime() < new Date(s.fechaInicio).getTime()
+        );
+
+        if (isRenewal) {
+          renovaciones.push({ sub: s, cliente });
+        }
+
+        suscripcionesCreadas.push({ sub: s, cliente, servicioNombre });
       }
     });
 
-    const vencimientos: { sub: Suscripcion; cliente: Cliente }[] = [];
+    const vencimientos: DayEvents['vencimientos'] = [];
     suscripciones.forEach(s => {
       if (s.fechaVencimiento === dateStr) {
         const cliente = getCliente(s.clienteId);
@@ -80,8 +110,36 @@ export default function CalendarioPage() {
       }
     });
 
-    return { date, renovaciones, vencimientos, pagos: pagosDelDia, nuevosClientes };
-  }, [suscripciones, pagos, clientes, getCliente]);
+    return { date, renovaciones, vencimientos, pagos: pagosDelDia, nuevosClientes, suscripcionesCreadas };
+  }, [suscripciones, pagos, clientes, getCliente, getServicioById]);
+
+  // Count events based on active filter
+  const getFilteredEventCount = useCallback((events: DayEvents): number => {
+    switch (activeFilter) {
+      case 'pagos': return events.pagos.length;
+      case 'vencimientos': return events.vencimientos.length;
+      case 'renovaciones': return events.renovaciones.length;
+      case 'nuevos': return events.nuevosClientes.length;
+      default:
+        return events.renovaciones.length + events.vencimientos.length +
+          events.pagos.length + events.nuevosClientes.length;
+    }
+  }, [activeFilter]);
+
+  // Get event badge color for a day
+  const getDayBadgeColor = useCallback((events: DayEvents): string => {
+    if (activeFilter === 'pagos') return events.pagos.length > 0 ? 'bg-primary text-primary-foreground' : '';
+    if (activeFilter === 'vencimientos') return events.vencimientos.length > 0 ? 'bg-destructive text-destructive-foreground' : '';
+    if (activeFilter === 'renovaciones') return events.renovaciones.length > 0 ? 'bg-success text-white' : '';
+    if (activeFilter === 'nuevos') return events.nuevosClientes.length > 0 ? 'bg-warning text-white' : '';
+
+    // "todo" mode: priority color
+    if (events.vencimientos.length > 0) return 'bg-destructive text-destructive-foreground';
+    if (events.pagos.length > 0) return 'bg-primary text-primary-foreground';
+    if (events.renovaciones.length > 0) return 'bg-success text-white';
+    if (events.nuevosClientes.length > 0) return 'bg-warning text-white';
+    return '';
+  }, [activeFilter]);
 
   // Calendar days for month view
   const calendarDays = useMemo(() => {
@@ -177,7 +235,6 @@ export default function CalendarioPage() {
         break;
       }
       case 'nuevo': {
-        // Move all first subscriptions of this client to the new date
         const clienteSubs = suscripciones.filter(s => s.clienteId === data.id);
         const firstSub = clienteSubs.reduce<Suscripcion | null>((first, s) =>
           !first || s.fechaInicio < first.fechaInicio ? s : first, null);
@@ -210,7 +267,7 @@ export default function CalendarioPage() {
 
   const DOW = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
-  // ─── Draggable chip (shared between both views) ───────────────
+  // ─── Draggable chip ───────────────────────────────────────────
   const EventChip = ({
     label, color, dragData, compact = false,
   }: {
@@ -227,25 +284,38 @@ export default function CalendarioPage() {
     </div>
   );
 
-  // Build flat chip list from events (for monthly view, limited)
+  // Build filtered chip list
   const buildChips = (events: DayEvents, max: number) => {
     const chips: { label: string; color: string; dragData: DragData }[] = [];
 
-    events.renovaciones.forEach(({ sub, cliente }) =>
-      chips.push({ label: `↻ ${cliente.nombre}`, color: 'bg-success/15 text-success', dragData: { type: 'renovacion', id: sub.id } })
-    );
-    events.vencimientos.forEach(({ sub, cliente }) =>
-      chips.push({ label: `⚠ ${cliente.nombre}`, color: 'bg-destructive/15 text-destructive', dragData: { type: 'vencimiento', id: sub.id } })
-    );
-    events.pagos.forEach(p => {
-      const c = getCliente(p.clienteId);
-      chips.push({ label: `$ ${c?.nombre || '?'}`, color: 'bg-primary/15 text-primary', dragData: { type: 'pago', id: p.id } });
-    });
-    events.nuevosClientes.forEach(c =>
-      chips.push({ label: `+ ${c.nombre}`, color: 'bg-warning/15 text-warning', dragData: { type: 'nuevo', id: c.id } })
-    );
+    if (activeFilter === 'todo' || activeFilter === 'renovaciones') {
+      events.renovaciones.forEach(({ sub, cliente }) =>
+        chips.push({ label: `↻ ${cliente.nombre}`, color: 'bg-success/15 text-success', dragData: { type: 'renovacion', id: sub.id } })
+      );
+    }
+    if (activeFilter === 'todo' || activeFilter === 'vencimientos') {
+      events.vencimientos.forEach(({ sub, cliente }) =>
+        chips.push({ label: `⚠ ${cliente.nombre}`, color: 'bg-destructive/15 text-destructive', dragData: { type: 'vencimiento', id: sub.id } })
+      );
+    }
+    if (activeFilter === 'todo' || activeFilter === 'pagos') {
+      events.pagos.forEach(p => {
+        const c = getCliente(p.clienteId);
+        chips.push({ label: `$ ${c?.nombre || '?'}`, color: 'bg-primary/15 text-primary', dragData: { type: 'pago', id: p.id } });
+      });
+    }
+    if (activeFilter === 'todo' || activeFilter === 'nuevos') {
+      events.nuevosClientes.forEach(c =>
+        chips.push({ label: `+ ${c.nombre}`, color: 'bg-warning/15 text-warning', dragData: { type: 'nuevo', id: c.id } })
+      );
+    }
 
     return { visible: chips.slice(0, max), overflow: Math.max(0, chips.length - max) };
+  };
+
+  // Day total USD
+  const getDayTotal = (events: DayEvents) => {
+    return events.pagos.reduce((sum, p) => sum + p.monto, 0);
   };
 
   return (
@@ -286,6 +356,25 @@ export default function CalendarioPage() {
         </div>
       </div>
 
+      {/* Filters */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {FILTER_OPTIONS.map(opt => (
+          <button
+            key={opt.value}
+            onClick={() => setActiveFilter(opt.value)}
+            className={cn(
+              'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors border',
+              activeFilter === opt.value
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-card text-muted-foreground border-border hover:text-foreground hover:border-foreground/30'
+            )}
+          >
+            {opt.icon}
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
       {/* Legend */}
       <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
         <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-success" /> Renovaciones</span>
@@ -310,6 +399,9 @@ export default function CalendarioPage() {
               const dateStr = format(date, 'yyyy-MM-dd');
               const { visible, overflow } = buildChips(events, 3);
               const isDragTarget = dragOverDate === dateStr;
+              const filteredCount = getFilteredEventCount(events);
+              const badgeColor = getDayBadgeColor(events);
+              const hasEvents = filteredCount > 0;
 
               return (
                 <div
@@ -318,20 +410,35 @@ export default function CalendarioPage() {
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, dateStr)}
                   onClick={() => {
-                    const total = events.renovaciones.length + events.vencimientos.length + events.pagos.length + events.nuevosClientes.length;
-                    if (total > 0) setSelectedDay(events);
+                    // Always allow opening detail for any day (shows empty state too)
+                    const totalAll = events.renovaciones.length + events.vencimientos.length + events.pagos.length + events.nuevosClientes.length;
+                    if (totalAll > 0) setSelectedDay(events);
                   }}
-                  className={`min-h-[88px] p-1.5 border-b border-r border-border text-left transition-all relative ${
-                    inMonth ? 'bg-card' : 'bg-muted/30'
-                  } ${isDragTarget ? 'bg-primary/10 ring-2 ring-inset ring-primary/50' : ''} ${
-                    isToday(date) ? 'ring-2 ring-inset ring-primary' : ''
-                  } ${visible.length > 0 || overflow > 0 ? 'cursor-pointer hover:bg-accent/30' : ''}`}
+                  className={cn(
+                    'min-h-[88px] p-1.5 border-b border-r border-border text-left transition-all relative',
+                    inMonth ? 'bg-card' : 'bg-muted/30',
+                    isDragTarget && 'bg-primary/10 ring-2 ring-inset ring-primary/50',
+                    isToday(date) && 'ring-2 ring-inset ring-primary',
+                    hasEvents && 'cursor-pointer hover:bg-accent/30',
+                  )}
                 >
-                  <span className={`text-xs font-medium block mb-0.5 ${
-                    isToday(date) ? 'text-primary font-bold' : inMonth ? 'text-foreground' : 'text-muted-foreground/50'
-                  }`}>
-                    {format(date, 'd')}
-                  </span>
+                  <div className="flex items-start justify-between mb-0.5">
+                    <span className={cn(
+                      'text-xs font-medium',
+                      isToday(date) ? 'text-primary font-bold' : inMonth ? 'text-foreground' : 'text-muted-foreground/50'
+                    )}>
+                      {format(date, 'd')}
+                    </span>
+                    {/* Event count badge */}
+                    {inMonth && filteredCount > 0 && (
+                      <span className={cn(
+                        'text-[9px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center',
+                        badgeColor
+                      )}>
+                        {filteredCount}
+                      </span>
+                    )}
+                  </div>
                   {inMonth && (
                     <div className="space-y-0.5">
                       {visible.map((chip, ci) => (
@@ -402,6 +509,8 @@ export default function CalendarioPage() {
               const isSat = getDay(date) === 6;
               const isDragTarget = dragOverDate === dateStr;
               const { visible } = buildChips(events, 99);
+              const filteredCount = getFilteredEventCount(events);
+              const badgeColor = getDayBadgeColor(events);
 
               return (
                 <div
@@ -410,18 +519,31 @@ export default function CalendarioPage() {
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, dateStr)}
                   onClick={() => {
-                    if (visible.length > 0) setSelectedDay(events);
+                    const totalAll = events.renovaciones.length + events.vencimientos.length + events.pagos.length + events.nuevosClientes.length;
+                    if (totalAll > 0) setSelectedDay(events);
                   }}
-                  className={`rounded-lg border p-3 text-left transition-all min-h-[160px] ${
+                  className={cn(
+                    'rounded-lg border p-3 text-left transition-all min-h-[160px]',
                     isDragTarget ? 'border-primary ring-2 ring-primary/30 bg-primary/5' :
                     isToday(date) ? 'border-primary ring-1 ring-primary bg-primary/5' :
                     isSat ? 'border-warning/30 bg-warning/5' :
-                    'border-border bg-card'
-                  } ${visible.length > 0 ? 'cursor-pointer hover:shadow-md' : ''}`}
+                    'border-border bg-card',
+                    visible.length > 0 && 'cursor-pointer hover:shadow-md',
+                  )}
                 >
                   <div className="text-center mb-2">
                     <p className={`text-[10px] uppercase font-semibold ${isToday(date) ? 'text-primary' : 'text-muted-foreground'}`}>{dayName}</p>
-                    <p className={`text-lg font-bold ${isToday(date) ? 'text-primary' : ''}`}>{format(date, 'd')}</p>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <p className={`text-lg font-bold ${isToday(date) ? 'text-primary' : ''}`}>{format(date, 'd')}</p>
+                      {filteredCount > 0 && (
+                        <span className={cn(
+                          'text-[9px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center',
+                          badgeColor
+                        )}>
+                          {filteredCount}
+                        </span>
+                      )}
+                    </div>
                     {isSat && (
                       <Badge variant="outline" className="text-[8px] px-1 py-0 text-warning border-warning/30 mt-0.5">Corte</Badge>
                     )}
@@ -459,139 +581,186 @@ export default function CalendarioPage() {
             </div>
 
             <div className="p-4 space-y-5">
-              {/* Renovaciones */}
-              {selectedDay.renovaciones.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="h-2 w-2 rounded-full bg-success" />
-                    <h4 className="text-xs font-semibold text-success">Renovaciones ({selectedDay.renovaciones.length})</h4>
+              {/* Day total */}
+              {getDayTotal(selectedDay) > 0 && (
+                <div className="rounded-lg bg-primary/10 p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Total del día</span>
                   </div>
-                  <div className="space-y-1.5">
-                    {selectedDay.renovaciones.map(({ sub, cliente }) => {
-                      const servicio = getServicioById(sub.servicioId);
-                      return (
-                        <div
-                          key={sub.id}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, { type: 'renovacion', id: sub.id })}
-                          className="flex items-center justify-between rounded-md bg-muted/30 p-2.5 text-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
-                        >
-                          <div className="flex items-center gap-2">
-                            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
-                            <div>
-                              <p className="font-medium">{cliente.nombre}</p>
-                              <p className="text-xs text-muted-foreground">{servicio?.nombre || 'Sin servicio'}</p>
-                            </div>
-                          </div>
-                          <span className="text-xs font-medium text-success">${sub.precioCobrado} USD</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Vencimientos */}
-              {selectedDay.vencimientos.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="h-2 w-2 rounded-full bg-destructive" />
-                    <h4 className="text-xs font-semibold text-destructive">Vencimientos ({selectedDay.vencimientos.length})</h4>
-                  </div>
-                  <div className="space-y-1.5">
-                    {selectedDay.vencimientos.map(({ sub, cliente }) => {
-                      const servicio = getServicioById(sub.servicioId);
-                      return (
-                        <div
-                          key={sub.id}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, { type: 'vencimiento', id: sub.id })}
-                          className="flex items-center justify-between rounded-md bg-muted/30 p-2.5 text-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
-                        >
-                          <div className="flex items-center gap-2">
-                            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
-                            <div>
-                              <p className="font-medium">{cliente.nombre}</p>
-                              <p className="text-xs text-muted-foreground">{servicio?.nombre || 'Sin servicio'}</p>
-                            </div>
-                          </div>
-                          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-primary hover:bg-primary/10" onClick={() => handleRenovar(sub)}>
-                            <RefreshCw className="h-3 w-3" /> Renovar
-                          </Button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Pagos */}
-              {selectedDay.pagos.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="h-2 w-2 rounded-full bg-primary" />
-                    <h4 className="text-xs font-semibold text-primary">Pagos ({selectedDay.pagos.length})</h4>
-                  </div>
-                  <div className="space-y-1.5">
-                    {selectedDay.pagos.map(p => {
-                      const cliente = getCliente(p.clienteId);
-                      return (
-                        <div
-                          key={p.id}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, { type: 'pago', id: p.id })}
-                          className="flex items-center justify-between rounded-md bg-muted/30 p-2.5 text-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
-                        >
-                          <div className="flex items-center gap-2">
-                            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
-                            <div>
-                              <p className="font-medium">{cliente?.nombre || 'Desconocido'}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {p.metodo}
-                                {p.montoOriginal && p.moneda && p.moneda !== 'USD' && ` · ${p.montoOriginal.toLocaleString()} ${p.moneda}`}
-                              </p>
-                            </div>
-                          </div>
-                          <span className="text-xs font-medium text-success">+${p.monto.toFixed(2)} USD</span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <span className="text-lg font-bold text-primary">
+                    ${getDayTotal(selectedDay).toFixed(2)} USD
+                  </span>
                 </div>
               )}
 
               {/* Nuevos clientes */}
               {selectedDay.nuevosClientes.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="h-2 w-2 rounded-full bg-warning" />
-                    <h4 className="text-xs font-semibold text-warning">Nuevos Clientes ({selectedDay.nuevosClientes.length})</h4>
-                  </div>
-                  <div className="space-y-1.5">
-                    {selectedDay.nuevosClientes.map(c => (
-                      <div
-                        key={c.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, { type: 'nuevo', id: c.id })}
-                        className="flex items-center justify-between rounded-md bg-muted/30 p-2.5 text-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex items-center gap-2">
-                          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
-                          <div>
-                            <p className="font-medium">{c.nombre}</p>
-                            <p className="text-xs text-muted-foreground">{c.pais || 'Sin país'} · {c.whatsapp}</p>
-                          </div>
+                <DetailSection
+                  color="bg-warning" textColor="text-warning"
+                  title="Clientes nuevos" count={selectedDay.nuevosClientes.length}
+                >
+                  {selectedDay.nuevosClientes.map(c => (
+                    <DraggableItem
+                      key={c.id}
+                      dragData={{ type: 'nuevo', id: c.id }}
+                      onDragStart={handleDragStart}
+                      left={
+                        <div>
+                          <p className="font-medium">{c.nombre}</p>
+                          <p className="text-xs text-muted-foreground">{c.pais || 'Sin país'} · {c.whatsapp}</p>
                         </div>
-                        <UserPlus className="h-4 w-4 text-warning" />
+                      }
+                      right={<UserPlus className="h-4 w-4 text-warning" />}
+                    />
+                  ))}
+                </DetailSection>
+              )}
+
+              {/* Suscripciones creadas */}
+              {selectedDay.suscripcionesCreadas.length > 0 && (
+                <DetailSection
+                  color="bg-accent" textColor="text-accent-foreground"
+                  title="Suscripciones creadas" count={selectedDay.suscripcionesCreadas.length}
+                >
+                  {selectedDay.suscripcionesCreadas.map(({ sub, cliente, servicioNombre }) => (
+                    <div key={sub.id} className="flex items-center justify-between rounded-md bg-muted/30 p-2.5 text-sm">
+                      <div>
+                        <p className="font-medium">{cliente.nombre}</p>
+                        <p className="text-xs text-muted-foreground">{servicioNombre}</p>
                       </div>
-                    ))}
-                  </div>
-                </div>
+                      <span className="text-xs font-medium">${sub.precioCobrado} USD</span>
+                    </div>
+                  ))}
+                </DetailSection>
+              )}
+
+              {/* Pagos recibidos */}
+              {selectedDay.pagos.length > 0 && (
+                <DetailSection
+                  color="bg-primary" textColor="text-primary"
+                  title="Pagos recibidos" count={selectedDay.pagos.length}
+                >
+                  {selectedDay.pagos.map(p => {
+                    const cliente = getCliente(p.clienteId);
+                    return (
+                      <DraggableItem
+                        key={p.id}
+                        dragData={{ type: 'pago', id: p.id }}
+                        onDragStart={handleDragStart}
+                        left={
+                          <div>
+                            <p className="font-medium">{cliente?.nombre || 'Desconocido'}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {p.metodo}
+                              {p.montoOriginal && p.moneda && p.moneda !== 'USD' && ` · ${p.montoOriginal.toLocaleString()} ${p.moneda}`}
+                            </p>
+                          </div>
+                        }
+                        right={<span className="text-xs font-medium text-success">+${p.monto.toFixed(2)} USD</span>}
+                      />
+                    );
+                  })}
+                </DetailSection>
+              )}
+
+              {/* Renovaciones */}
+              {selectedDay.renovaciones.length > 0 && (
+                <DetailSection
+                  color="bg-success" textColor="text-success"
+                  title="Renovaciones" count={selectedDay.renovaciones.length}
+                >
+                  {selectedDay.renovaciones.map(({ sub, cliente }) => {
+                    const servicio = getServicioById(sub.servicioId);
+                    return (
+                      <DraggableItem
+                        key={sub.id}
+                        dragData={{ type: 'renovacion', id: sub.id }}
+                        onDragStart={handleDragStart}
+                        left={
+                          <div>
+                            <p className="font-medium">{cliente.nombre}</p>
+                            <p className="text-xs text-muted-foreground">{servicio?.nombre || 'Sin servicio'}</p>
+                          </div>
+                        }
+                        right={<span className="text-xs font-medium text-success">${sub.precioCobrado} USD</span>}
+                      />
+                    );
+                  })}
+                </DetailSection>
+              )}
+
+              {/* Vencimientos */}
+              {selectedDay.vencimientos.length > 0 && (
+                <DetailSection
+                  color="bg-destructive" textColor="text-destructive"
+                  title="Vencimientos" count={selectedDay.vencimientos.length}
+                >
+                  {selectedDay.vencimientos.map(({ sub, cliente }) => {
+                    const servicio = getServicioById(sub.servicioId);
+                    return (
+                      <DraggableItem
+                        key={sub.id}
+                        dragData={{ type: 'vencimiento', id: sub.id }}
+                        onDragStart={handleDragStart}
+                        left={
+                          <div>
+                            <p className="font-medium">{cliente.nombre}</p>
+                            <p className="text-xs text-muted-foreground">{servicio?.nombre || 'Sin servicio'}</p>
+                          </div>
+                        }
+                        right={
+                          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-primary hover:bg-primary/10" onClick={() => handleRenovar(sub)}>
+                            <RefreshCw className="h-3 w-3" /> Renovar
+                          </Button>
+                        }
+                      />
+                    );
+                  })}
+                </DetailSection>
               )}
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Reusable sub-components ────────────────────────────────────
+
+function DetailSection({ color, textColor, title, count, children }: {
+  color: string; textColor: string; title: string; count: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <span className={cn('h-2 w-2 rounded-full', color)} />
+        <h4 className={cn('text-xs font-semibold', textColor)}>{title} ({count})</h4>
+      </div>
+      <div className="space-y-1.5">{children}</div>
+    </div>
+  );
+}
+
+function DraggableItem({ dragData, onDragStart, left, right }: {
+  dragData: DragData;
+  onDragStart: (e: DragEvent<HTMLDivElement>, data: DragData) => void;
+  left: React.ReactNode;
+  right: React.ReactNode;
+}) {
+  return (
+    <div
+      draggable
+      onDragStart={(e) => onDragStart(e, dragData)}
+      className="flex items-center justify-between rounded-md bg-muted/30 p-2.5 text-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
+    >
+      <div className="flex items-center gap-2">
+        <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
+        {left}
+      </div>
+      {right}
     </div>
   );
 }
