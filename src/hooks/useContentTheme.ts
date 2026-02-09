@@ -54,13 +54,6 @@ export function applyContentColor(key: string, value: string) {
   document.documentElement.style.setProperty(cssVarName(key), value);
 }
 
-export function clearContentVars() {
-  const root = document.documentElement;
-  (Object.keys(CONTENT_DEFAULTS) as string[]).forEach(key => {
-    root.style.removeProperty(cssVarName(key));
-  });
-}
-
 export function isContentCustomized(): boolean {
   return localStorage.getItem(CUSTOM_FLAG_KEY) === 'true';
 }
@@ -73,39 +66,20 @@ function loadColorsForMode(dark: boolean): ContentColors {
   return dark ? { ...CONTENT_DEFAULTS_DARK } : { ...CONTENT_DEFAULTS };
 }
 
+/** Apply the correct content colors for the given mode. Call after toggling dark/light. */
+export function setModeColors(dark: boolean) {
+  const isCustom = isContentCustomized();
+  const colors = isCustom ? loadColorsForMode(dark) : (dark ? { ...CONTENT_DEFAULTS_DARK } : { ...CONTENT_DEFAULTS });
+  applyAllContentColors(colors);
+}
+
 export function useContentTheme() {
   const [isCustom, setIsCustom] = useState(() => isContentCustomized());
   const [colors, setColors] = useState<ContentColors>(() => loadColorsForMode(isDarkMode()));
 
-  // Watch for dark mode changes via MutationObserver
+  // ALWAYS apply content colors — never clear them
   useEffect(() => {
-    const observer = new MutationObserver(() => {
-      const dark = isDarkMode();
-      if (isCustom) {
-        const modeColors = loadColorsForMode(dark);
-        setColors(modeColors);
-      } else {
-        clearContentVars();
-        const defaults = dark ? CONTENT_DEFAULTS_DARK : CONTENT_DEFAULTS;
-        setColors({ ...defaults });
-      }
-    });
-
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
-    });
-
-    return () => observer.disconnect();
-  }, [isCustom]);
-
-  // Apply on mount and when colors change
-  useEffect(() => {
-    if (isCustom) {
-      applyAllContentColors(colors);
-    } else {
-      clearContentVars();
-    }
+    applyAllContentColors(colors);
     const dark = isDarkMode();
     localStorage.setItem(getStorageKey(dark), JSON.stringify(colors));
     localStorage.setItem(CUSTOM_FLAG_KEY, String(isCustom));
@@ -122,7 +96,7 @@ export function useContentTheme() {
     const defaults = dark ? CONTENT_DEFAULTS_DARK : CONTENT_DEFAULTS;
     setColors({ ...defaults });
     setIsCustom(false);
-    clearContentVars();
+    applyAllContentColors(defaults);
   }, []);
 
   return { colors, updateColor, resetColors, isCustom };

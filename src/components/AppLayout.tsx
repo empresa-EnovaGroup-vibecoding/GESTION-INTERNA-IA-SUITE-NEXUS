@@ -5,7 +5,7 @@ import { PageView } from '@/types';
 import { cn } from '@/lib/utils';
 import { useConfiguracion } from '@/hooks/useConfiguracion';
 import { applySidebarTheme } from '@/lib/sidebarTheme';
-import { useContentTheme } from '@/hooks/useContentTheme';
+import { useContentTheme, setModeColors } from '@/hooks/useContentTheme';
 import { hexToHSL } from '@/lib/colorUtils';
 
 interface AppLayoutProps {
@@ -31,15 +31,14 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
     return saved ? saved === 'dark' : true; // dark by default
   });
   const { config, loading } = useConfiguracion();
-  const { isCustom, resetColors } = useContentTheme();
+  const { } = useContentTheme();
   const { signOut } = useAuth();
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
     localStorage.setItem('theme', darkMode ? 'dark' : 'light');
-    // Reset content colors to match the new mode
-    resetColors();
-  }, [darkMode, resetColors]);
+    setModeColors(darkMode);
+  }, [darkMode]);
 
   useEffect(() => {
     if (!loading) {
@@ -174,19 +173,18 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
 
       {/* Main content */}
       <div
-        className="flex flex-1 flex-col overflow-hidden bg-background text-foreground"
+        className="flex flex-1 flex-col overflow-hidden"
         style={{
-          backgroundColor: isCustom ? 'var(--content-bg)' : undefined,
-          color: isCustom ? 'var(--content-text)' : undefined,
-          
+          backgroundColor: 'var(--content-bg)',
+          color: 'var(--content-text)',
         }}
       >
         <header
-          className="flex h-14 items-center gap-4 border-b border-border px-4 lg:px-8 bg-card"
+          className="flex h-14 items-center gap-4 border-b px-4 lg:px-8"
           style={{
-            backgroundColor: isCustom ? 'var(--content-card-bg)' : undefined,
-            borderColor: isCustom ? 'var(--content-hover-bg)' : undefined,
-            color: isCustom ? 'var(--content-text-heading)' : undefined,
+            backgroundColor: 'var(--content-card-bg)',
+            borderColor: 'var(--content-hover-bg)',
+            color: 'var(--content-text-heading)',
           }}
         >
           <button
@@ -199,10 +197,10 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
         </header>
 
         <main
-          className="flex-1 overflow-y-auto p-4 lg:p-8 bg-background"
+          className="flex-1 overflow-y-auto p-4 lg:p-8"
           style={{
-            backgroundColor: isCustom ? 'var(--content-bg)' : undefined,
-            color: isCustom ? 'var(--content-text)' : undefined,
+            backgroundColor: 'var(--content-bg)',
+            color: 'var(--content-text)',
           }}
         >
           <div className="animate-fade-in">
