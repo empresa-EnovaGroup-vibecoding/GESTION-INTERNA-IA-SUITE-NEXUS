@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useConfiguracion } from '@/hooks/useConfiguracion';
 import { applySidebarTheme } from '@/lib/sidebarTheme';
 import { useContentTheme } from '@/hooks/useContentTheme';
+import { hexToHSL } from '@/lib/colorUtils';
 
 interface AppLayoutProps {
   currentPage: PageView;
@@ -39,7 +40,17 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
   }, [darkMode]);
 
   useEffect(() => {
-    if (!loading) applySidebarTheme(config);
+    if (!loading) {
+      applySidebarTheme(config);
+      // Apply saved primary color on load
+      if (config.color_primario) {
+        const hsl = hexToHSL(config.color_primario);
+        if (hsl) {
+          document.documentElement.style.setProperty('--primary', hsl);
+          document.documentElement.style.setProperty('--ring', hsl);
+        }
+      }
+    }
   }, [loading, config]);
 
   return (

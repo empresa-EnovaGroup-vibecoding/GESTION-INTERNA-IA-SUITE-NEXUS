@@ -151,7 +151,7 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
 
           {/* Credential fields with caída message */}
           {caidaReportada && (
-            <div className="flex items-center gap-2 rounded-md border border-blue-500/30 bg-blue-500/10 p-2.5 text-sm text-blue-700 dark:text-blue-300">
+            <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 p-2.5 text-sm text-primary">
               <Info className="h-4 w-4 shrink-0" />
               Ingresa las nuevas credenciales del proveedor
             </div>

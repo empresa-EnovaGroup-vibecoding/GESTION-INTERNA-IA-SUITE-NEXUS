@@ -524,10 +524,10 @@ export default function ReporteSemanalDialog() {
           </Section>
 
           {/* Pagos */}
-          <Section emoji="💰" title="Pagos recibidos" count={r.pagosCount} color="text-blue-500">
+          <Section emoji="💰" title="Pagos recibidos" count={r.pagosCount} color="text-primary">
             <div className="flex flex-wrap gap-2 text-xs">
               {r.totalUSD > 0 && (
-                <span className="rounded-full bg-blue-500/10 px-2 py-0.5 font-medium text-blue-700 dark:text-blue-400">
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
                   ${r.totalUSD} USD
                 </span>
               )}

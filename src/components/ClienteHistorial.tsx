@@ -29,7 +29,7 @@ const FILTER_LABELS: Record<EventTipo, string> = {
 const EVENT_CONFIG: Record<EventTipo, { icon: typeof UserPlus; color: string; filterColor: string }> = {
   registro:    { icon: UserPlus,      color: 'text-emerald-500', filterColor: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30' },
   asignacion:  { icon: PlayCircle,    color: 'text-sky-500',     filterColor: 'bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30' },
-  pago:        { icon: DollarSign,    color: 'text-blue-500',    filterColor: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30' },
+  pago:        { icon: DollarSign,    color: 'text-primary',     filterColor: 'bg-primary/15 text-primary border-primary/30' },
   renovacion:  { icon: RefreshCw,     color: 'text-green-500',   filterColor: 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30' },
   cancelacion: { icon: XCircle,       color: 'text-destructive', filterColor: 'bg-destructive/15 text-destructive border-destructive/30' },
   vencimiento: { icon: AlertTriangle, color: 'text-warning',     filterColor: 'bg-warning/15 text-warning border-warning/30' },
