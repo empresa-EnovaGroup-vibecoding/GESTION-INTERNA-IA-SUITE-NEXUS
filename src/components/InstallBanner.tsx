@@ -7,7 +7,8 @@ export default function InstallBanner() {
   useEffect(() => {
     const dismissed = sessionStorage.getItem('install-banner-dismissed');
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    if (!dismissed && !isStandalone) {
+    const isMobile = window.matchMedia('(max-width: 1023px)').matches;
+    if (!dismissed && !isStandalone && isMobile) {
       setVisible(true);
     }
   }, []);
