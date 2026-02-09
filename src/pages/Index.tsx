@@ -6,6 +6,7 @@ import Dashboard from '@/pages/Dashboard';
 import PanelesPage from '@/pages/PanelesPage';
 import ClientesPage from '@/pages/ClientesPage';
 import FinanzasPage from '@/pages/FinanzasPage';
+import ServiciosPage from '@/pages/ServiciosPage';
 
 const Index = () => {
   const [currentPage, setCurrentPage] = useState<PageView>('dashboard');
@@ -16,6 +17,7 @@ const Index = () => {
       case 'paneles': return <PanelesPage />;
       case 'clientes': return <ClientesPage />;
       case 'finanzas': return <FinanzasPage />;
+      case 'servicios': return <ServiciosPage />;
     }
   };
 

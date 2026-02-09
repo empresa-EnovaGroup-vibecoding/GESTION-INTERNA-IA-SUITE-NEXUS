@@ -4,16 +4,15 @@ import { format, isToday, isBefore, addDays, isAfter, startOfDay } from 'date-fn
 import { es } from 'date-fns/locale';
 import { AlertTriangle, Clock, Users, Monitor, TrendingUp, CalendarClock, MessageCircle } from 'lucide-react';
 import { getWhatsAppNotificationUrl } from '@/lib/whatsapp';
-import { Suscripcion, Cliente } from '@/types';
+import { Suscripcion } from '@/types';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 
 export default function Dashboard() {
-  const { clientes, paneles, suscripciones, transacciones, getPanelById } = useData();
+  const { clientes, paneles, suscripciones, transacciones, getPanelById, getServicioById } = useData();
 
   const today = startOfDay(new Date());
   const in3Days = addDays(today, 3);
 
-  // Enrich suscripciones with cliente info
   const getCliente = (clienteId: string) => clientes.find(c => c.id === clienteId);
 
   const vencimientosHoy = useMemo(() =>
@@ -46,13 +45,14 @@ export default function Dashboard() {
 
   const WhatsAppButton = ({ suscripcion, tipo }: { suscripcion: Suscripcion; tipo: 'proximo' | 'hoy' | 'vencido' }) => {
     const cliente = getCliente(suscripcion.clienteId);
+    const servicio = getServicioById(suscripcion.servicioId);
     if (!cliente) return null;
     return (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
             <a
-              href={getWhatsAppNotificationUrl(cliente, suscripcion, tipo)}
+              href={getWhatsAppNotificationUrl(cliente, suscripcion, servicio, tipo)}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center rounded-md p-1.5 text-success hover:bg-success/10 transition-colors"
@@ -70,13 +70,13 @@ export default function Dashboard() {
 
   const SuscripcionItem = ({ sub, tipo }: { sub: Suscripcion; tipo: 'proximo' | 'hoy' | 'vencido' }) => {
     const cliente = getCliente(sub.clienteId);
-    const panel = getPanelById(sub.panelId);
+    const servicio = getServicioById(sub.servicioId);
     if (!cliente) return null;
     return (
       <div className="flex items-center justify-between rounded-md bg-card p-3 text-sm">
         <div>
           <p className="font-medium">{cliente.nombre}</p>
-          <p className="text-xs text-muted-foreground">{sub.servicio} · {cliente.whatsapp}</p>
+          <p className="text-xs text-muted-foreground">{servicio?.nombre || '?'} · {cliente.whatsapp}</p>
         </div>
         <div className="flex items-center gap-2">
           {tipo === 'proximo' && (
@@ -91,7 +91,7 @@ export default function Dashboard() {
           )}
           {tipo === 'hoy' && (
             <span className="text-xs text-muted-foreground">
-              {panel?.nombre || '—'}
+              {getPanelById(sub.panelId)?.nombre || '—'}
             </span>
           )}
           <WhatsAppButton suscripcion={sub} tipo={tipo} />
@@ -120,14 +120,11 @@ export default function Dashboard() {
 
       {/* Alerts */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* Vencimientos Hoy */}
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-5">
           <div className="mb-4 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-destructive" />
             <h3 className="text-sm font-semibold text-destructive">Vencimientos de Hoy</h3>
-            <span className="alert-badge bg-destructive/10 text-destructive">
-              {vencimientosHoy.length}
-            </span>
+            <span className="alert-badge bg-destructive/10 text-destructive">{vencimientosHoy.length}</span>
           </div>
           {vencimientosHoy.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay vencimientos hoy</p>
@@ -138,14 +135,11 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Próximos 3 días */}
         <div className="rounded-lg border border-warning/30 bg-warning/5 p-5">
           <div className="mb-4 flex items-center gap-2">
             <CalendarClock className="h-4 w-4 text-warning" />
             <h3 className="text-sm font-semibold text-warning">Próximos 3 Días</h3>
-            <span className="alert-badge bg-warning/10 text-warning">
-              {vencimientosProximos.length}
-            </span>
+            <span className="alert-badge bg-warning/10 text-warning">{vencimientosProximos.length}</span>
           </div>
           {vencimientosProximos.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay vencimientos próximos</p>
@@ -157,15 +151,12 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Vencidos */}
       {vencidos.length > 0 && (
         <div className="rounded-lg border border-muted bg-muted/30 p-5">
           <div className="mb-4 flex items-center gap-2">
             <Clock className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold">Suscripciones Vencidas</h3>
-            <span className="alert-badge bg-muted text-muted-foreground">
-              {vencidos.length}
-            </span>
+            <span className="alert-badge bg-muted text-muted-foreground">{vencidos.length}</span>
           </div>
           <div className="space-y-2">
             {vencidos.slice(0, 5).map(s => <SuscripcionItem key={s.id} sub={s} tipo="vencido" />)}

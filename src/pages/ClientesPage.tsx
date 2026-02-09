@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Cliente, Suscripcion } from '@/types';
-import { format, isBefore, isToday, startOfDay } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { isBefore, isToday, startOfDay } from 'date-fns';
 import { Plus, Trash2, Edit2, Phone, ChevronDown, ChevronUp } from 'lucide-react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,7 +18,7 @@ import {
 import ClienteSuscripciones from '@/components/ClienteSuscripciones';
 
 export default function ClientesPage() {
-  const { clientes, suscripciones, addCliente, updateCliente, deleteCliente, getSuscripcionesByCliente, getPanelById } = useData();
+  const { clientes, addCliente, updateCliente, deleteCliente, getSuscripcionesByCliente, getPanelById, getServicioById } = useData();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Cliente | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -46,21 +47,17 @@ export default function ClientesPage() {
     setOpen(true);
   };
 
-  const getServiciosActivos = (clienteId: string): Suscripcion[] => {
-    return getSuscripcionesByCliente(clienteId);
-  };
-
   const getServiciosLabel = (clienteId: string): string => {
-    const subs = getServiciosActivos(clienteId);
+    const subs = getSuscripcionesByCliente(clienteId);
     if (subs.length === 0) return '—';
     const hoy = startOfDay(new Date());
     const activos = subs.filter(s => !isBefore(startOfDay(new Date(s.fechaVencimiento)), hoy));
     if (activos.length === 0) return `${subs.length} vencido${subs.length > 1 ? 's' : ''}`;
-    return activos.map(s => s.servicio).join(' + ');
+    return activos.map(s => getServicioById(s.servicioId)?.nombre || '?').join(' + ');
   };
 
   const getEstadoGlobal = (clienteId: string) => {
-    const subs = getServiciosActivos(clienteId);
+    const subs = getSuscripcionesByCliente(clienteId);
     if (subs.length === 0) return 'sin-servicio';
     const hoy = startOfDay(new Date());
     const hayVencido = subs.some(s => isBefore(startOfDay(new Date(s.fechaVencimiento)), hoy));
@@ -102,7 +99,7 @@ export default function ClientesPage() {
               Nuevo Cliente
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editing ? 'Editar Cliente' : 'Nuevo Cliente'}</DialogTitle>
             </DialogHeader>
@@ -130,7 +127,6 @@ export default function ClientesPage() {
               </Button>
             </form>
 
-            {/* Suscripciones section when editing */}
             {editing && (
               <ClienteSuscripciones clienteId={editing.id} />
             )}
@@ -161,7 +157,7 @@ export default function ClientesPage() {
             <tbody className="divide-y divide-border">
               {clientes.map(cliente => {
                 const estado = getEstadoGlobal(cliente.id);
-                const subs = getServiciosActivos(cliente.id);
+                const subs = getSuscripcionesByCliente(cliente.id);
                 const isExpanded = expandedId === cliente.id;
                 return (
                   <>
@@ -209,12 +205,13 @@ export default function ClientesPage() {
                           <div className="space-y-2">
                             {subs.map(sub => {
                               const panel = getPanelById(sub.panelId);
+                              const servicio = getServicioById(sub.servicioId);
                               const vencido = isBefore(startOfDay(new Date(sub.fechaVencimiento)), startOfDay(new Date()));
                               const hoy = isToday(new Date(sub.fechaVencimiento));
                               return (
                                 <div key={sub.id} className="flex items-center justify-between rounded-md bg-card p-2.5 text-xs">
                                   <div className="flex items-center gap-3">
-                                    <span className="font-medium">{sub.servicio}</span>
+                                    <span className="font-medium">{servicio?.nombre || '?'}</span>
                                     <span className="text-muted-foreground">Panel: {panel?.nombre || '—'}</span>
                                   </div>
                                   <div className="flex items-center gap-3">

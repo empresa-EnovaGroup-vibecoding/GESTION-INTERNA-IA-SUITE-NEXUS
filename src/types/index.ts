@@ -15,11 +15,17 @@ export interface Cliente {
   whatsapp: string;
 }
 
+export interface Servicio {
+  id: string;
+  nombre: string;
+  precioBase: number;
+}
+
 export interface Suscripcion {
   id: string;
   clienteId: string;
+  servicioId: string;
   panelId: string;
-  servicio: string;
   fechaInicio: string;
   fechaVencimiento: string; // auto: fechaInicio + 30 days
 }
@@ -33,4 +39,4 @@ export interface Transaccion {
   fecha: string;
 }
 
-export type PageView = 'dashboard' | 'paneles' | 'clientes' | 'finanzas';
+export type PageView = 'dashboard' | 'paneles' | 'clientes' | 'finanzas' | 'servicios';
