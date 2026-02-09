@@ -4,6 +4,7 @@ import { Suscripcion, PaisCliente } from '@/types';
 import { format, addDays } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Clock } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -12,6 +13,7 @@ import {
 import { toast } from 'sonner';
 import ServicioFormInline, { PendingSuscripcion } from './ServicioFormInline';
 import SuscripcionCard from './SuscripcionCard';
+import ClienteHistorial from './ClienteHistorial';
 
 const PAISES: PaisCliente[] = ['Venezuela', 'Ecuador', 'Colombia', 'Mexico'];
 
@@ -144,6 +146,17 @@ export default function ClienteEditPanel({ clienteId, nombre, whatsapp, pais, on
           Guardar {pendingSubs.length} servicio(s) nuevo(s)
         </Button>
       )}
+
+      <Separator />
+
+      {/* Activity history */}
+      <div className="space-y-3">
+        <h4 className="text-sm font-semibold flex items-center gap-1.5">
+          <Clock className="h-4 w-4 text-muted-foreground" />
+          Historial de Actividad
+        </h4>
+        <ClienteHistorial clienteId={clienteId} />
+      </div>
     </div>
   );
 }
