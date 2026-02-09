@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Panel, Cliente, Servicio, Suscripcion, Transaccion, Pago, Corte, EstadoPanel, CredencialHistorial } from '@/types';
 import { addDays, format, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
+import { supabaseExternal } from '@/lib/supabaseExternal';
 
 interface DataContextType {
   paneles: Panel[];
@@ -10,6 +11,7 @@ interface DataContextType {
   transacciones: Transaccion[];
   pagos: Pago[];
   cortes: Corte[];
+  loading: boolean;
   // Paneles
   addPanel: (panel: Omit<Panel, 'id' | 'cuposUsados' | 'historialCredenciales'>) => void;
   updatePanel: (panel: Panel) => void;
@@ -51,199 +53,257 @@ function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-function loadFromStorage<T>(key: string, fallback: T): T {
-  try {
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : fallback;
-  } catch {
-    return fallback;
-  }
+// === Supabase row mappers ===
+
+function panelToRow(p: Panel) {
+  return {
+    id: p.id, nombre: p.nombre, email: p.email, password: p.password,
+    fecha_compra: p.fechaCompra, fecha_expiracion: p.fechaExpiracion,
+    capacidad_total: p.capacidadTotal, cupos_usados: p.cuposUsados,
+    servicio_asociado: p.servicioAsociado, estado: p.estado,
+    proveedor: p.proveedor || null, costo_mensual: p.costoMensual,
+    credencial_fecha_inicio: p.credencialFechaInicio,
+    historial_credenciales: p.historialCredenciales as any,
+  };
+}
+function rowToPanel(r: any): Panel {
+  return {
+    id: r.id, nombre: r.nombre, email: r.email, password: r.password,
+    fechaCompra: r.fecha_compra, fechaExpiracion: r.fecha_expiracion,
+    capacidadTotal: r.capacidad_total, cuposUsados: r.cupos_usados,
+    servicioAsociado: r.servicio_asociado, estado: r.estado,
+    proveedor: r.proveedor || '', costoMensual: r.costo_mensual,
+    credencialFechaInicio: r.credencial_fecha_inicio,
+    historialCredenciales: r.historial_credenciales || [],
+  };
 }
 
-// Migrate old data formats
-function migrateData() {
-  try {
-    // Migrate old clientes (with panelId) to new format
-    const clientesRaw = localStorage.getItem('clientes');
-    if (clientesRaw) {
-      const oldClientes = JSON.parse(clientesRaw);
-      if (oldClientes.length > 0 && 'panelId' in oldClientes[0]) {
-        const existingSuscripciones = loadFromStorage<Suscripcion[]>('suscripciones', []);
-        if (existingSuscripciones.length === 0) {
-          const newClientes: Cliente[] = [];
-          const newSuscripciones: Suscripcion[] = [];
-          for (const old of oldClientes) {
-            newClientes.push({ id: old.id, nombre: old.nombre, whatsapp: old.whatsapp });
-            if (old.panelId) {
-              newSuscripciones.push({
-                id: generateId(),
-                clienteId: old.id,
-                servicioId: '',
-                panelId: old.panelId,
-                estado: 'activa',
-                fechaInicio: old.fechaInicio,
-                fechaVencimiento: old.fechaVencimiento || format(addDays(new Date(old.fechaInicio), 30), 'yyyy-MM-dd'),
-                precioCobrado: 0,
-              });
-            }
-          }
-          localStorage.setItem('clientes', JSON.stringify(newClientes));
-          localStorage.setItem('suscripciones', JSON.stringify(newSuscripciones));
-        }
-      }
-    }
-
-    // Migrate old suscripciones
-    const subsRaw = localStorage.getItem('suscripciones');
-    if (subsRaw) {
-      const subs = JSON.parse(subsRaw);
-      if (subs.length > 0 && 'servicio' in subs[0] && !('servicioId' in subs[0])) {
-        const servicios: Servicio[] = loadFromStorage('servicios', []);
-        const servicioMap = new Map<string, string>();
-        for (const sub of subs) {
-          const nombre = sub.servicio || 'General';
-          if (!servicioMap.has(nombre)) {
-            const existing = servicios.find(s => s.nombre === nombre);
-            if (existing) {
-              servicioMap.set(nombre, existing.id);
-            } else {
-              const newServicio: Servicio = { id: generateId(), nombre, precioBase: 0 };
-              servicios.push(newServicio);
-              servicioMap.set(nombre, newServicio.id);
-            }
-          }
-        }
-        const migratedSubs = subs.map((sub: any) => ({
-          id: sub.id, clienteId: sub.clienteId,
-          servicioId: servicioMap.get(sub.servicio || 'General') || '',
-          panelId: sub.panelId, estado: sub.estado || 'activa',
-          fechaInicio: sub.fechaInicio, fechaVencimiento: sub.fechaVencimiento,
-          precioCobrado: sub.precioCobrado ?? 0,
-          credencialEmail: sub.credencialEmail, credencialPassword: sub.credencialPassword,
-          notas: sub.notas,
-        }));
-        localStorage.setItem('suscripciones', JSON.stringify(migratedSubs));
-        localStorage.setItem('servicios', JSON.stringify(servicios));
-      } else if (subs.length > 0 && !('estado' in subs[0])) {
-        const migratedSubs = subs.map((sub: any) => ({
-          ...sub, estado: sub.estado || 'activa', precioCobrado: sub.precioCobrado ?? 0,
-        }));
-        localStorage.setItem('suscripciones', JSON.stringify(migratedSubs));
-      }
-    }
-
-    // Migrate old paneles to new credential history format + costoMensual
-    const panelesRaw = localStorage.getItem('paneles');
-    if (panelesRaw) {
-      const oldPaneles = JSON.parse(panelesRaw);
-      let needsMigration = false;
-      if (oldPaneles.length > 0) {
-        if (!('historialCredenciales' in oldPaneles[0]) || !('costoMensual' in oldPaneles[0])) {
-          needsMigration = true;
-        }
-      }
-      if (needsMigration) {
-        const migrated = oldPaneles.map((p: any) => ({
-          id: p.id,
-          nombre: p.nombre,
-          email: p.email,
-          password: p.password,
-          fechaCompra: p.fechaCompra,
-          fechaExpiracion: p.fechaExpiracion,
-          capacidadTotal: p.capacidadTotal,
-          cuposUsados: p.cuposUsados || 0,
-          servicioAsociado: p.servicioAsociado || '',
-          estado: p.estado || 'activo',
-          proveedor: p.proveedor || '',
-          costoMensual: p.costoMensual ?? 0,
-          credencialFechaInicio: p.credencialFechaInicio || p.fechaCompra || format(new Date(), 'yyyy-MM-dd'),
-          historialCredenciales: p.historialCredenciales || [],
-        }));
-        localStorage.setItem('paneles', JSON.stringify(migrated));
-      }
-    }
-  } catch {
-    // ignore migration errors
-  }
+function clienteToRow(c: Cliente) {
+  return { id: c.id, nombre: c.nombre, whatsapp: c.whatsapp, pais: c.pais || null };
+}
+function rowToCliente(r: any): Cliente {
+  return { id: r.id, nombre: r.nombre, whatsapp: r.whatsapp, pais: r.pais || undefined };
 }
 
-migrateData();
+function servicioToRow(s: Servicio) {
+  return { id: s.id, nombre: s.nombre, precio_base: s.precioBase, precio_ref_mxn: s.precioRefMXN ?? null, precio_ref_cop: s.precioRefCOP ?? null };
+}
+function rowToServicio(r: any): Servicio {
+  return { id: r.id, nombre: r.nombre, precioBase: r.precio_base, precioRefMXN: r.precio_ref_mxn ?? undefined, precioRefCOP: r.precio_ref_cop ?? undefined };
+}
+
+function suscripcionToRow(s: Suscripcion) {
+  return {
+    id: s.id, cliente_id: s.clienteId, servicio_id: s.servicioId,
+    panel_id: s.panelId || null, estado: s.estado,
+    fecha_inicio: s.fechaInicio, fecha_vencimiento: s.fechaVencimiento,
+    precio_cobrado: s.precioCobrado,
+    precio_local: s.precioLocal ?? null, moneda_local: s.monedaLocal ?? null,
+    credencial_email: s.credencialEmail ?? null, credencial_password: s.credencialPassword ?? null,
+    notas: s.notas ?? null,
+  };
+}
+function rowToSuscripcion(r: any): Suscripcion {
+  return {
+    id: r.id, clienteId: r.cliente_id, servicioId: r.servicio_id,
+    panelId: r.panel_id || undefined, estado: r.estado,
+    fechaInicio: r.fecha_inicio, fechaVencimiento: r.fecha_vencimiento,
+    precioCobrado: r.precio_cobrado,
+    precioLocal: r.precio_local ?? undefined, monedaLocal: r.moneda_local ?? undefined,
+    credencialEmail: r.credencial_email ?? undefined, credencialPassword: r.credencial_password ?? undefined,
+    notas: r.notas ?? undefined,
+  };
+}
+
+function pagoToRow(p: Pago) {
+  return {
+    id: p.id, cliente_id: p.clienteId, monto: p.monto,
+    monto_original: p.montoOriginal ?? null, moneda: p.moneda ?? null,
+    tasa_cambio: p.tasaCambio ?? null, metodo: p.metodo,
+    fecha: p.fecha, corte_id: p.corteId ?? null,
+  };
+}
+function rowToPago(r: any): Pago {
+  return {
+    id: r.id, clienteId: r.cliente_id, monto: r.monto,
+    montoOriginal: r.monto_original ?? undefined, moneda: r.moneda ?? undefined,
+    tasaCambio: r.tasa_cambio ?? undefined, metodo: r.metodo,
+    fecha: r.fecha, corteId: r.corte_id ?? undefined,
+  };
+}
+
+function corteToRow(c: Corte) {
+  return {
+    id: c.id, fecha: c.fecha, pais: c.pais, moneda: c.moneda,
+    total_recaudado: c.totalRecaudado, comision_porcentaje: c.comisionPorcentaje,
+    total_despues_comision: c.totalDespuesComision, tasa_binance: c.tasaBinance,
+    usdt_calculado: c.usdtCalculado, usdt_recibido_real: c.usdtRecibidoReal,
+    notas: c.notas ?? null, pagos_ids: c.pagosIds as any,
+  };
+}
+function rowToCorte(r: any): Corte {
+  return {
+    id: r.id, fecha: r.fecha, pais: r.pais, moneda: r.moneda,
+    totalRecaudado: r.total_recaudado, comisionPorcentaje: r.comision_porcentaje,
+    totalDespuesComision: r.total_despues_comision, tasaBinance: r.tasa_binance,
+    usdtCalculado: r.usdt_calculado, usdtRecibidoReal: r.usdt_recibido_real,
+    notas: r.notas ?? undefined, pagosIds: r.pagos_ids || [],
+  };
+}
+
+function transaccionToRow(t: Transaccion) {
+  return { id: t.id, tipo: t.tipo, concepto: t.concepto, monto: t.monto, categoria: t.categoria, fecha: t.fecha };
+}
+function rowToTransaccion(r: any): Transaccion {
+  return { id: r.id, tipo: r.tipo, concepto: r.concepto, monto: r.monto, categoria: r.categoria, fecha: r.fecha };
+}
+
+// === localStorage migration ===
+async function migrateLocalStorageToSupabase() {
+  const tables = [
+    { key: 'servicios', table: 'servicios', toRow: servicioToRow },
+    { key: 'paneles', table: 'paneles', toRow: panelToRow },
+    { key: 'clientes', table: 'clientes', toRow: clienteToRow },
+    { key: 'suscripciones', table: 'suscripciones', toRow: suscripcionToRow },
+    { key: 'pagos', table: 'pagos', toRow: pagoToRow },
+    { key: 'cortes', table: 'cortes', toRow: corteToRow },
+    { key: 'transacciones', table: 'transacciones', toRow: transaccionToRow },
+  ];
+
+  for (const { key, table, toRow } of tables) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const items = JSON.parse(raw);
+      if (!Array.isArray(items) || items.length === 0) continue;
+
+      // Check if Supabase already has data for this table
+      const { count } = await supabaseExternal.from(table).select('id', { count: 'exact', head: true });
+      if (count && count > 0) continue; // skip if data exists
+
+      const rows = items.map((item: any) => toRow(item));
+      const { error } = await supabaseExternal.from(table).upsert(rows, { onConflict: 'id' });
+      if (!error) {
+        localStorage.removeItem(key);
+        console.log(`Migrated ${items.length} items from localStorage.${key} to Supabase`);
+      } else {
+        console.error(`Error migrating ${key}:`, error);
+      }
+    } catch (e) {
+      console.error(`Migration error for ${key}:`, e);
+    }
+  }
+}
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [paneles, setPaneles] = useState<Panel[]>(() => loadFromStorage('paneles', []));
-  const [clientes, setClientes] = useState<Cliente[]>(() => loadFromStorage('clientes', []));
-  const [servicios, setServicios] = useState<Servicio[]>(() => loadFromStorage('servicios', []));
-  const [suscripciones, setSuscripciones] = useState<Suscripcion[]>(() => loadFromStorage('suscripciones', []));
-  const [transacciones, setTransacciones] = useState<Transaccion[]>(() => loadFromStorage('transacciones', []));
-  const [pagos, setPagos] = useState<Pago[]>(() => loadFromStorage('pagos', []));
-  const [cortes, setCortes] = useState<Corte[]>(() => loadFromStorage('cortes', []));
+  const [paneles, setPaneles] = useState<Panel[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [servicios, setServicios] = useState<Servicio[]>([]);
+  const [suscripciones, setSuscripciones] = useState<Suscripcion[]>([]);
+  const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
+  const [pagos, setPagos] = useState<Pago[]>([]);
+  const [cortes, setCortes] = useState<Corte[]>([]);
+  const [loading, setLoading] = useState(true);
+  const initialized = useRef(false);
 
-  useEffect(() => { localStorage.setItem('paneles', JSON.stringify(paneles)); }, [paneles]);
-  useEffect(() => { localStorage.setItem('clientes', JSON.stringify(clientes)); }, [clientes]);
-  useEffect(() => { localStorage.setItem('servicios', JSON.stringify(servicios)); }, [servicios]);
-  useEffect(() => { localStorage.setItem('suscripciones', JSON.stringify(suscripciones)); }, [suscripciones]);
-  useEffect(() => { localStorage.setItem('transacciones', JSON.stringify(transacciones)); }, [transacciones]);
-  useEffect(() => { localStorage.setItem('pagos', JSON.stringify(pagos)); }, [pagos]);
-  useEffect(() => { localStorage.setItem('cortes', JSON.stringify(cortes)); }, [cortes]);
+  // Load all data from Supabase on mount
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
+    async function loadData() {
+      // First, migrate localStorage data if any
+      await migrateLocalStorageToSupabase();
+
+      // Then fetch everything from Supabase
+      const [pRes, cRes, sRes, subRes, tRes, pgRes, coRes] = await Promise.all([
+        supabaseExternal.from('paneles').select('*'),
+        supabaseExternal.from('clientes').select('*'),
+        supabaseExternal.from('servicios').select('*'),
+        supabaseExternal.from('suscripciones').select('*'),
+        supabaseExternal.from('transacciones').select('*'),
+        supabaseExternal.from('pagos').select('*'),
+        supabaseExternal.from('cortes').select('*'),
+      ]);
+
+      setPaneles((pRes.data || []).map(rowToPanel));
+      setClientes((cRes.data || []).map(rowToCliente));
+      setServicios((sRes.data || []).map(rowToServicio));
+      setSuscripciones((subRes.data || []).map(rowToSuscripcion));
+      setTransacciones((tRes.data || []).map(rowToTransaccion));
+      setPagos((pgRes.data || []).map(rowToPago));
+      setCortes((coRes.data || []).map(rowToCorte));
+      setLoading(false);
+    }
+
+    loadData();
+  }, []);
 
   // --- Paneles ---
-  const addPanel = useCallback((panel: Omit<Panel, 'id' | 'cuposUsados' | 'historialCredenciales'>) => {
+  const addPanel = useCallback(async (panel: Omit<Panel, 'id' | 'cuposUsados' | 'historialCredenciales'>) => {
     const now = format(new Date(), 'yyyy-MM-dd');
-    setPaneles(prev => [...prev, {
-      ...panel,
-      id: generateId(),
-      cuposUsados: 0,
-      estado: panel.estado || 'activo',
-      servicioAsociado: panel.servicioAsociado || '',
-      credencialFechaInicio: panel.credencialFechaInicio || now,
-      historialCredenciales: [],
-    }]);
+    const newPanel: Panel = {
+      ...panel, id: generateId(), cuposUsados: 0,
+      estado: panel.estado || 'activo', servicioAsociado: panel.servicioAsociado || '',
+      credencialFechaInicio: panel.credencialFechaInicio || now, historialCredenciales: [],
+    };
+    setPaneles(prev => [...prev, newPanel]);
+    await supabaseExternal.from('paneles').insert(panelToRow(newPanel));
   }, []);
 
-  const updatePanel = useCallback((panel: Panel) => {
+  const updatePanel = useCallback(async (panel: Panel) => {
     setPaneles(prev => prev.map(p => p.id === panel.id ? panel : p));
+    await supabaseExternal.from('paneles').update(panelToRow(panel)).eq('id', panel.id);
   }, []);
 
-  const deletePanel = useCallback((id: string) => {
+  const deletePanel = useCallback(async (id: string) => {
     setPaneles(prev => prev.filter(p => p.id !== id));
     setSuscripciones(prev => prev.filter(s => s.panelId !== id));
+    await Promise.all([
+      supabaseExternal.from('paneles').delete().eq('id', id),
+      supabaseExternal.from('suscripciones').delete().eq('panel_id', id),
+    ]);
   }, []);
 
-  const rotarCredenciales = useCallback((panelId: string, newEmail: string, newPassword: string) => {
+  const rotarCredenciales = useCallback(async (panelId: string, newEmail: string, newPassword: string) => {
     const now = format(new Date(), 'yyyy-MM-dd');
+    let updatedPanel: Panel | null = null;
     setPaneles(prev => prev.map(p => {
       if (p.id !== panelId) return p;
       const historialEntry: CredencialHistorial = {
-        email: p.email,
-        password: p.password,
-        fechaInicio: p.credencialFechaInicio,
-        fechaFin: now,
-        motivo: 'Caído - reemplazado',
+        email: p.email, password: p.password,
+        fechaInicio: p.credencialFechaInicio, fechaFin: now, motivo: 'Caído - reemplazado',
       };
-      return {
-        ...p,
-        email: newEmail,
-        password: newPassword,
-        credencialFechaInicio: now,
-        estado: 'activo' as EstadoPanel,
+      updatedPanel = {
+        ...p, email: newEmail, password: newPassword,
+        credencialFechaInicio: now, estado: 'activo' as EstadoPanel,
         historialCredenciales: [historialEntry, ...(p.historialCredenciales || [])],
       };
+      return updatedPanel;
     }));
+    if (updatedPanel) {
+      await supabaseExternal.from('paneles').update(panelToRow(updatedPanel)).eq('id', panelId);
+    }
   }, []);
 
   // --- Clientes ---
-  const addCliente = useCallback((cliente: Omit<Cliente, 'id'>) => {
-    setClientes(prev => [...prev, { ...cliente, id: generateId() }]);
+  const addCliente = useCallback(async (cliente: Omit<Cliente, 'id'>) => {
+    const newCliente: Cliente = { ...cliente, id: generateId() };
+    setClientes(prev => [...prev, newCliente]);
+    await supabaseExternal.from('clientes').insert(clienteToRow(newCliente));
   }, []);
 
-  const addClienteConSuscripciones = useCallback((
+  const addClienteConSuscripciones = useCallback(async (
     cliente: Omit<Cliente, 'id'>,
     subsData: Omit<Suscripcion, 'id' | 'fechaVencimiento' | 'estado' | 'clienteId'>[]
   ) => {
     const clienteId = generateId();
-    setClientes(prev => [...prev, { ...cliente, id: clienteId }]);
+    const newCliente: Cliente = { ...cliente, id: clienteId };
+    setClientes(prev => [...prev, newCliente]);
+    await supabaseExternal.from('clientes').insert(clienteToRow(newCliente));
+
     if (subsData.length > 0) {
-      const newSubs = subsData.map(s => ({
+      const newSubs: Suscripcion[] = subsData.map(s => ({
         ...s, id: generateId(), clienteId,
         estado: 'activa' as const,
         fechaVencimiento: format(addDays(new Date(s.fechaInicio), 30), 'yyyy-MM-dd'),
@@ -253,14 +313,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const count = newSubs.filter(s => s.panelId === p.id).length;
         return count > 0 ? { ...p, cuposUsados: p.cuposUsados + count } : p;
       }));
+
+      await supabaseExternal.from('suscripciones').insert(newSubs.map(suscripcionToRow));
+      // Update panel cupos in Supabase
+      const panelUpdates = new Map<string, number>();
+      newSubs.forEach(s => {
+        if (s.panelId) panelUpdates.set(s.panelId, (panelUpdates.get(s.panelId) || 0) + 1);
+      });
+      for (const [pid, count] of panelUpdates) {
+        const panel = paneles.find(p => p.id === pid);
+        if (panel) {
+          await supabaseExternal.from('paneles').update({ cupos_usados: panel.cuposUsados + count }).eq('id', pid);
+        }
+      }
     }
-  }, []);
+  }, [paneles]);
 
-  const updateCliente = useCallback((cliente: Cliente) => {
+  const updateCliente = useCallback(async (cliente: Cliente) => {
     setClientes(prev => prev.map(c => c.id === cliente.id ? cliente : c));
+    await supabaseExternal.from('clientes').update(clienteToRow(cliente)).eq('id', cliente.id);
   }, []);
 
-  const deleteCliente = useCallback((id: string) => {
+  const deleteCliente = useCallback(async (id: string) => {
     setSuscripciones(prev => {
       const clienteSubs = prev.filter(s => s.clienteId === id);
       setPaneles(p => p.map(panel => {
@@ -270,18 +344,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       return prev.filter(s => s.clienteId !== id);
     });
     setClientes(prev => prev.filter(c => c.id !== id));
+    await Promise.all([
+      supabaseExternal.from('suscripciones').delete().eq('cliente_id', id),
+      supabaseExternal.from('clientes').delete().eq('id', id),
+    ]);
   }, []);
 
-  // --- Servicios (catálogo) ---
-  const addServicio = useCallback((servicio: Omit<Servicio, 'id'>) => {
-    setServicios(prev => [...prev, { ...servicio, id: generateId() }]);
+  // --- Servicios ---
+  const addServicio = useCallback(async (servicio: Omit<Servicio, 'id'>) => {
+    const newServicio: Servicio = { ...servicio, id: generateId() };
+    setServicios(prev => [...prev, newServicio]);
+    await supabaseExternal.from('servicios').insert(servicioToRow(newServicio));
   }, []);
 
-  const updateServicio = useCallback((servicio: Servicio) => {
+  const updateServicio = useCallback(async (servicio: Servicio) => {
     setServicios(prev => prev.map(s => s.id === servicio.id ? servicio : s));
+    await supabaseExternal.from('servicios').update(servicioToRow(servicio)).eq('id', servicio.id);
   }, []);
 
-  const deleteServicio = useCallback((id: string) => {
+  const deleteServicio = useCallback(async (id: string) => {
     setServicios(prev => prev.filter(s => s.id !== id));
     setSuscripciones(prev => {
       const toRemove = prev.filter(s => s.servicioId === id);
@@ -291,22 +372,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }));
       return prev.filter(s => s.servicioId !== id);
     });
+    await Promise.all([
+      supabaseExternal.from('suscripciones').delete().eq('servicio_id', id),
+      supabaseExternal.from('servicios').delete().eq('id', id),
+    ]);
   }, []);
 
   const getServicioById = useCallback((id: string) => servicios.find(s => s.id === id), [servicios]);
 
   // --- Suscripciones ---
-  const addSuscripcion = useCallback((suscripcion: Omit<Suscripcion, 'id' | 'fechaVencimiento' | 'estado'>) => {
+  const addSuscripcion = useCallback(async (suscripcion: Omit<Suscripcion, 'id' | 'fechaVencimiento' | 'estado'>) => {
     const fechaVencimiento = format(addDays(new Date(suscripcion.fechaInicio), 30), 'yyyy-MM-dd');
-    setSuscripciones(prev => [...prev, { ...suscripcion, id: generateId(), fechaVencimiento, estado: 'activa' }]);
+    const newSub: Suscripcion = { ...suscripcion, id: generateId(), fechaVencimiento, estado: 'activa' };
+    setSuscripciones(prev => [...prev, newSub]);
     if (suscripcion.panelId) {
       setPaneles(prev => prev.map(p =>
         p.id === suscripcion.panelId ? { ...p, cuposUsados: p.cuposUsados + 1 } : p
       ));
+      await supabaseExternal.from('paneles').update({ cupos_usados: (paneles.find(p => p.id === suscripcion.panelId)?.cuposUsados || 0) + 1 }).eq('id', suscripcion.panelId);
     }
-  }, []);
+    await supabaseExternal.from('suscripciones').insert(suscripcionToRow(newSub));
+  }, [paneles]);
 
-  const updateSuscripcion = useCallback((suscripcion: Suscripcion) => {
+  const updateSuscripcion = useCallback(async (suscripcion: Suscripcion) => {
     setSuscripciones(prev => {
       const old = prev.find(s => s.id === suscripcion.id);
       if (old && old.panelId !== suscripcion.panelId) {
@@ -318,9 +406,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
       return prev.map(s => s.id === suscripcion.id ? suscripcion : s);
     });
+    await supabaseExternal.from('suscripciones').update(suscripcionToRow(suscripcion)).eq('id', suscripcion.id);
   }, []);
 
-  const deleteSuscripcion = useCallback((id: string) => {
+  const deleteSuscripcion = useCallback(async (id: string) => {
     setSuscripciones(prev => {
       const sub = prev.find(s => s.id === id);
       if (sub?.panelId) {
@@ -330,6 +419,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
       return prev.filter(s => s.id !== id);
     });
+    await supabaseExternal.from('suscripciones').delete().eq('id', id);
   }, []);
 
   const getSuscripcionesByCliente = useCallback((clienteId: string) =>
@@ -338,36 +428,42 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   );
 
   // --- Transacciones ---
-  const addTransaccion = useCallback((transaccion: Omit<Transaccion, 'id'>) => {
-    setTransacciones(prev => [...prev, { ...transaccion, id: generateId() }]);
+  const addTransaccion = useCallback(async (transaccion: Omit<Transaccion, 'id'>) => {
+    const newT: Transaccion = { ...transaccion, id: generateId() };
+    setTransacciones(prev => [...prev, newT]);
+    await supabaseExternal.from('transacciones').insert(transaccionToRow(newT));
   }, []);
 
-  const deleteTransaccion = useCallback((id: string) => {
+  const deleteTransaccion = useCallback(async (id: string) => {
     setTransacciones(prev => prev.filter(t => t.id !== id));
+    await supabaseExternal.from('transacciones').delete().eq('id', id);
   }, []);
 
   // --- Pagos ---
-  const addPago = useCallback((pago: Omit<Pago, 'id'>) => {
-    setPagos(prev => [...prev, { ...pago, id: generateId() }]);
+  const addPago = useCallback(async (pago: Omit<Pago, 'id'>) => {
+    const newPago: Pago = { ...pago, id: generateId() };
+    setPagos(prev => [...prev, newPago]);
+    await supabaseExternal.from('pagos').insert(pagoToRow(newPago));
   }, []);
 
-  const updatePago = useCallback((pago: Pago) => {
+  const updatePago = useCallback(async (pago: Pago) => {
     setPagos(prev => prev.map(p => p.id === pago.id ? pago : p));
+    await supabaseExternal.from('pagos').update(pagoToRow(pago)).eq('id', pago.id);
   }, []);
 
-  const deletePago = useCallback((id: string) => {
+  const deletePago = useCallback(async (id: string) => {
     setPagos(prev => prev.filter(p => p.id !== id));
+    await supabaseExternal.from('pagos').delete().eq('id', id);
   }, []);
 
   // --- Cortes ---
-  const addCorte = useCallback((corteData: Omit<Corte, 'id' | 'pagosIds'>) => {
+  const addCorte = useCallback(async (corteData: Omit<Corte, 'id' | 'pagosIds'>) => {
     const corteId = generateId();
     const monedaTarget = corteData.pais === 'Mexico' ? 'MXN' : 'COP';
     const corteDate = new Date(corteData.fecha);
     const weekStart = startOfWeek(corteDate, { weekStartsOn: 1 });
     const weekEnd = endOfWeek(corteDate, { weekStartsOn: 1 });
 
-    // Find all unlinked payments from this country in this week
     const eligiblePagoIds = pagos
       .filter(p => {
         if (p.corteId) return false;
@@ -379,31 +475,45 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       })
       .map(p => p.id);
 
-    // Create corte with linked payment IDs
-    setCortes(prev => [...prev, { ...corteData, id: corteId, pagosIds: eligiblePagoIds }]);
+    const newCorte: Corte = { ...corteData, id: corteId, pagosIds: eligiblePagoIds };
+    setCortes(prev => [...prev, newCorte]);
+    await supabaseExternal.from('cortes').insert(corteToRow(newCorte));
 
-    // Update payments: recalculate USD using corte's Binance rate
     if (corteData.tasaBinance > 0 && eligiblePagoIds.length > 0) {
+      const updatedPagos: Pago[] = [];
       setPagos(prev => prev.map(p => {
         if (!eligiblePagoIds.includes(p.id)) return p;
         const newMonto = p.montoOriginal && p.montoOriginal > 0
           ? Math.round((p.montoOriginal / corteData.tasaBinance) * 100) / 100
           : p.monto;
-        return { ...p, corteId, monto: newMonto };
+        const updated = { ...p, corteId, monto: newMonto };
+        updatedPagos.push(updated);
+        return updated;
       }));
+      // Batch update pagos in Supabase
+      for (const up of updatedPagos) {
+        await supabaseExternal.from('pagos').update(pagoToRow(up)).eq('id', up.id);
+      }
     }
   }, [pagos, clientes]);
 
-  const deleteCorte = useCallback((id: string) => {
-    // Revert linked payments to their original estimated rate
+  const deleteCorte = useCallback(async (id: string) => {
+    const revertedPagos: Pago[] = [];
     setPagos(prev => prev.map(p => {
       if (p.corteId !== id) return p;
       const revertedMonto = p.montoOriginal && p.tasaCambio && p.tasaCambio > 0
         ? Math.round((p.montoOriginal / p.tasaCambio) * 100) / 100
         : p.monto;
-      return { ...p, corteId: undefined, monto: revertedMonto };
+      const reverted = { ...p, corteId: undefined, monto: revertedMonto };
+      revertedPagos.push(reverted);
+      return reverted;
     }));
     setCortes(prev => prev.filter(c => c.id !== id));
+
+    for (const rp of revertedPagos) {
+      await supabaseExternal.from('pagos').update(pagoToRow(rp)).eq('id', rp.id);
+    }
+    await supabaseExternal.from('cortes').delete().eq('id', id);
   }, []);
 
   // --- Helpers ---
@@ -416,7 +526,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      paneles, clientes, servicios, suscripciones, transacciones, pagos, cortes,
+      paneles, clientes, servicios, suscripciones, transacciones, pagos, cortes, loading,
       addPanel, updatePanel, deletePanel, rotarCredenciales,
       addCliente, addClienteConSuscripciones, updateCliente, deleteCliente,
       addServicio, updateServicio, deleteServicio, getServicioById,
