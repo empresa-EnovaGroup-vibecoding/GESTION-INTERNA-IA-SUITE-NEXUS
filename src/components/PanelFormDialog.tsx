@@ -36,7 +36,7 @@ const emptyForm = {
   capacidadTotal: 10,
   servicioAsociado: '',
   proveedor: '',
-  costoMensual: 0,
+  costoMensual: '',
 };
 
 export default function PanelFormDialog({ open, onOpenChange, editing }: Props) {
@@ -56,7 +56,7 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
         capacidadTotal: editing.capacidadTotal,
         servicioAsociado: editing.servicioAsociado || '',
         proveedor: editing.proveedor || '',
-        costoMensual: editing.costoMensual ?? 0,
+        costoMensual: editing.costoMensual != null ? String(editing.costoMensual) : '',
       });
       setHistorialLocal(editing.historialCredenciales || []);
     } else {
@@ -99,7 +99,7 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
         capacidadTotal: form.capacidadTotal,
         servicioAsociado: form.servicioAsociado,
         proveedor: form.proveedor,
-        costoMensual: form.costoMensual,
+        costoMensual: parseFloat(form.costoMensual) || 0,
         credencialFechaInicio: caidaReportada ? format(new Date(), 'yyyy-MM-dd') : editing.credencialFechaInicio,
         historialCredenciales: historialLocal,
       });
@@ -110,7 +110,7 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
       addPanel({
         ...form,
         estado: 'activo',
-        costoMensual: form.costoMensual,
+        costoMensual: parseFloat(form.costoMensual) || 0,
         credencialFechaInicio: format(new Date(), 'yyyy-MM-dd'),
       });
     }
@@ -185,7 +185,7 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
             </div>
             <div className="space-y-2">
               <Label>Costo Mensual ($)</Label>
-              <Input type="number" min={0} step="0.01" value={form.costoMensual} onChange={e => setForm(f => ({ ...f, costoMensual: parseFloat(e.target.value) || 0 }))} placeholder="0.00" />
+              <Input type="text" inputMode="decimal" value={form.costoMensual} onChange={e => { const v = e.target.value; if (v === '' || /^\d*\.?\d*$/.test(v)) setForm(f => ({ ...f, costoMensual: v })); }} placeholder="0.00" />
             </div>
           </div>
 
