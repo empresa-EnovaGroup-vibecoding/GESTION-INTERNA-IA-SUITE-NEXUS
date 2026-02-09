@@ -160,7 +160,7 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
       </aside>
 
       {/* Main content */}
-      <div className="flex flex-1 flex-col overflow-hidden" style={{ backgroundColor: 'var(--content-bg)' }}>
+      <div className="flex flex-1 flex-col overflow-hidden" style={{ backgroundColor: 'var(--content-bg)', minHeight: '100vh' }}>
         <header
           className="flex h-14 items-center gap-4 border-b px-4 lg:px-8"
           style={{
@@ -179,7 +179,7 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
           <h2 className="text-sm font-semibold capitalize" style={{ color: 'var(--content-text-heading)' }}>{currentPage}</h2>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8" style={{ color: 'var(--content-text)' }}>
+        <main className="flex-1 overflow-y-auto p-4 lg:p-8" style={{ color: 'var(--content-text)', backgroundColor: 'var(--content-bg)' }}>
           <div className="animate-fade-in">
             {children}
           </div>
