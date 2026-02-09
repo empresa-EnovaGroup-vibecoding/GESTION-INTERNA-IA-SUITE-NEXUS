@@ -25,10 +25,13 @@ export interface Panel {
   historialCredenciales: CredencialHistorial[];
 }
 
+export type PaisCliente = 'Venezuela' | 'Ecuador' | 'Colombia' | 'Mexico';
+
 export interface Cliente {
   id: string;
   nombre: string;
   whatsapp: string;
+  pais?: PaisCliente;
 }
 
 export interface Servicio {
@@ -62,12 +65,17 @@ export interface Transaccion {
   fecha: string;
 }
 
-export type MetodoPago = 'Transferencia' | 'Zelle' | 'PayPal' | 'Binance' | 'Efectivo';
+export type MetodoPago = 'Binance Pay' | 'Binance P2P' | 'Transferencia bancaria' | 'Zelle' | 'Nequi' | 'Mercado Pago' | 'PayPal' | 'Efectivo';
+
+export type MonedaPago = 'USD' | 'MXN' | 'COP';
 
 export interface Pago {
   id: string;
   clienteId: string;
-  monto: number;
+  monto: number; // always in USD
+  montoOriginal?: number; // amount in original currency
+  moneda?: MonedaPago; // original currency
+  tasaCambio?: number; // 1 USD = X local currency
   metodo: MetodoPago;
   fecha: string;
 }

@@ -1,6 +1,5 @@
 import { useData } from '@/contexts/DataContext';
-import { Pago } from '@/types';
-import { format, isSameMonth } from 'date-fns';
+import { isSameMonth, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Trash2 } from 'lucide-react';
 import {
@@ -46,8 +45,16 @@ export default function PagosRecientes({ selectedDate }: Props) {
                 {format(new Date(p.fecha), 'dd MMM yyyy', { locale: es })}
               </TableCell>
               <TableCell className="font-medium">{getClienteNombre(p.clienteId)}</TableCell>
-              <TableCell className="text-right font-medium text-success">
-                +${p.monto.toLocaleString()}
+              <TableCell className="text-right">
+                <div className="flex flex-col items-end">
+                  <span className="font-medium text-success">+${p.monto.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  {p.montoOriginal && p.moneda && (
+                    <span className="text-[10px] text-muted-foreground">
+                      {p.montoOriginal.toLocaleString()} {p.moneda}
+                      {p.tasaCambio && ` @ ${p.tasaCambio}`}
+                    </span>
+                  )}
+                </div>
               </TableCell>
               <TableCell>
                 <Badge variant="secondary" className="text-[10px]">{p.metodo}</Badge>

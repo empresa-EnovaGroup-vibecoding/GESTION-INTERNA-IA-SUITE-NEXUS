@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
-import { Cliente, Suscripcion } from '@/types';
+import { Cliente, Suscripcion, PaisCliente } from '@/types';
 import { format, differenceInDays, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Plus, Trash2, Edit2, Phone, Users } from 'lucide-react';
@@ -14,9 +14,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import ServicioFormInline, { PendingSuscripcion } from '@/components/ServicioFormInline';
 import ClienteEditPanel from '@/components/ClienteEditPanel';
+
+const PAISES: PaisCliente[] = ['Venezuela', 'Ecuador', 'Colombia', 'Mexico'];
 
 // Color palette for service badges
 const BADGE_COLORS = [
@@ -45,17 +50,17 @@ export default function ClientesPage() {
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
 
   // New client form state
-  const [newForm, setNewForm] = useState({ nombre: '', whatsapp: '' });
+  const [newForm, setNewForm] = useState({ nombre: '', whatsapp: '', pais: '' as PaisCliente | '' });
   const [pendingSubs, setPendingSubs] = useState<PendingSuscripcion[]>([]);
 
   // Edit client form state
-  const [editForm, setEditForm] = useState({ nombre: '', whatsapp: '' });
+  const [editForm, setEditForm] = useState({ nombre: '', whatsapp: '', pais: '' as PaisCliente | '' });
 
   // All service IDs for consistent color mapping
   const allServiceIds = useMemo(() => servicios.map(s => s.id), [servicios]);
 
   const resetCreate = () => {
-    setNewForm({ nombre: '', whatsapp: '' });
+    setNewForm({ nombre: '', whatsapp: '', pais: '' });
     setPendingSubs([]);
   };
 
@@ -63,7 +68,7 @@ export default function ClientesPage() {
     e.preventDefault();
     if (!newForm.nombre || !newForm.whatsapp) return;
     addClienteConSuscripciones(
-      { nombre: newForm.nombre, whatsapp: newForm.whatsapp },
+      { nombre: newForm.nombre, whatsapp: newForm.whatsapp, pais: newForm.pais || undefined },
       pendingSubs.map(({ _tempId, ...rest }) => rest)
     );
     setCreateOpen(false);
@@ -72,12 +77,12 @@ export default function ClientesPage() {
 
   const openEdit = (cliente: Cliente) => {
     setEditingCliente(cliente);
-    setEditForm({ nombre: cliente.nombre, whatsapp: cliente.whatsapp });
+    setEditForm({ nombre: cliente.nombre, whatsapp: cliente.whatsapp, pais: cliente.pais || '' });
   };
 
   const handleSaveEdit = () => {
     if (!editingCliente) return;
-    updateCliente({ ...editingCliente, ...editForm });
+    updateCliente({ ...editingCliente, ...editForm, pais: editForm.pais || undefined });
     setEditingCliente(null);
   };
 
@@ -134,7 +139,7 @@ export default function ClientesPage() {
               <DialogTitle>Nuevo Cliente</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-5">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <Label>Nombre</Label>
                   <Input
@@ -152,6 +157,19 @@ export default function ClientesPage() {
                     placeholder="+57 300 123 4567"
                     required
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>País</Label>
+                  <Select value={newForm.pais} onValueChange={v => setNewForm(f => ({ ...f, pais: v as PaisCliente }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAISES.map(p => (
+                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -186,6 +204,7 @@ export default function ClientesPage() {
             <thead className="border-b border-border bg-muted/50">
               <tr>
                 <th className="table-header px-4 py-3 text-left">Nombre</th>
+                <th className="table-header px-4 py-3 text-left">País</th>
                 <th className="table-header px-4 py-3 text-left">WhatsApp</th>
                 <th className="table-header px-4 py-3 text-left">Servicios</th>
                 <th className="table-header px-4 py-3 text-left">Estado</th>
@@ -204,6 +223,7 @@ export default function ClientesPage() {
                 return (
                   <tr key={cliente.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-3 font-medium">{cliente.nombre}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{cliente.pais || '—'}</td>
                     <td className="px-4 py-3">
                       <a
                         href={`https://wa.me/${cliente.whatsapp.replace(/\D/g, '')}`}
@@ -283,8 +303,10 @@ export default function ClientesPage() {
                 clienteId={editingCliente.id}
                 nombre={editForm.nombre}
                 whatsapp={editForm.whatsapp}
+                pais={editForm.pais}
                 onNombreChange={(v) => setEditForm(f => ({ ...f, nombre: v }))}
                 onWhatsappChange={(v) => setEditForm(f => ({ ...f, whatsapp: v }))}
+                onPaisChange={(v) => setEditForm(f => ({ ...f, pais: v }))}
               />
               <Button className="w-full" onClick={handleSaveEdit}>
                 Guardar Datos del Cliente

@@ -1,24 +1,31 @@
 import { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
-import { Suscripcion } from '@/types';
+import { Suscripcion, PaisCliente } from '@/types';
 import { format, addDays } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
 import ServicioFormInline, { PendingSuscripcion } from './ServicioFormInline';
 import SuscripcionCard from './SuscripcionCard';
+
+const PAISES: PaisCliente[] = ['Venezuela', 'Ecuador', 'Colombia', 'Mexico'];
 
 interface Props {
   clienteId: string;
   nombre: string;
   whatsapp: string;
+  pais: PaisCliente | '';
   onNombreChange: (v: string) => void;
   onWhatsappChange: (v: string) => void;
+  onPaisChange: (v: PaisCliente | '') => void;
 }
 
-export default function ClienteEditPanel({ clienteId, nombre, whatsapp, onNombreChange, onWhatsappChange }: Props) {
+export default function ClienteEditPanel({ clienteId, nombre, whatsapp, pais, onNombreChange, onWhatsappChange, onPaisChange }: Props) {
   const {
     getSuscripcionesByCliente, addSuscripcion, updateSuscripcion, deleteSuscripcion,
   } = useData();
@@ -70,7 +77,7 @@ export default function ClienteEditPanel({ clienteId, nombre, whatsapp, onNombre
   return (
     <div className="space-y-5">
       {/* Client data */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <div className="space-y-1.5">
           <Label className="text-xs">Nombre</Label>
           <Input value={nombre} onChange={e => onNombreChange(e.target.value)} className="h-9" />
@@ -78,6 +85,19 @@ export default function ClienteEditPanel({ clienteId, nombre, whatsapp, onNombre
         <div className="space-y-1.5">
           <Label className="text-xs">WhatsApp</Label>
           <Input value={whatsapp} onChange={e => onWhatsappChange(e.target.value)} className="h-9" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">País</Label>
+          <Select value={pais} onValueChange={v => onPaisChange(v as PaisCliente)}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Seleccionar" />
+            </SelectTrigger>
+            <SelectContent>
+              {PAISES.map(p => (
+                <SelectItem key={p} value={p}>{p}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
