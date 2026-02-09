@@ -9,7 +9,9 @@ import { useConfiguracion, SIDEBAR_DEFAULTS } from '@/hooks/useConfiguracion';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import SidebarColorPicker, { type SidebarColors } from '@/components/SidebarColorPicker';
+import ContentColorPicker from '@/components/ContentColorPicker';
 import { applySidebarColor } from '@/lib/sidebarTheme';
+import { useContentTheme } from '@/hooks/useContentTheme';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface TeamMember {
@@ -20,6 +22,7 @@ interface TeamMember {
 
 export default function ConfiguracionPage() {
   const { config, loading, updateConfig, refetch } = useConfiguracion();
+  const { colors: contentColors, updateColor: updateContentColor, resetColors: resetContentColors } = useContentTheme();
 
   // Empresa
   const [nombre, setNombre] = useState('');
@@ -278,6 +281,23 @@ export default function ConfiguracionPage() {
             <div className="flex items-center gap-2 pt-2">
               <Button size="sm" onClick={saveSidebarColors}><Save className="h-4 w-4 mr-1" /> Aplicar colores</Button>
               <Button size="sm" variant="outline" onClick={resetSidebarColors}><RotateCcw className="h-4 w-4 mr-1" /> Restablecer</Button>
+            </div>
+          </div>
+
+          {/* Content area colors */}
+          <div className="border-t border-border pt-5 mt-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm font-semibold">Colores del Área Principal</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Personaliza el fondo, tarjetas y textos del contenido</p>
+              </div>
+            </div>
+
+            <ContentColorPicker colors={contentColors} onChange={updateContentColor} />
+
+            <div className="flex items-center gap-2 pt-2">
+              <Button size="sm" onClick={() => toast.success('Colores guardados en localStorage')}><Save className="h-4 w-4 mr-1" /> Colores aplicados</Button>
+              <Button size="sm" variant="outline" onClick={() => { resetContentColors(); toast.info('Colores del contenido restablecidos'); }}><RotateCcw className="h-4 w-4 mr-1" /> Restablecer</Button>
             </div>
           </div>
         </CardContent>

@@ -5,6 +5,7 @@ import { PageView } from '@/types';
 import { cn } from '@/lib/utils';
 import { useConfiguracion } from '@/hooks/useConfiguracion';
 import { applySidebarTheme } from '@/lib/sidebarTheme';
+import { useContentTheme } from '@/hooks/useContentTheme';
 
 interface AppLayoutProps {
   currentPage: PageView;
@@ -29,6 +30,7 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
     return saved ? saved === 'dark' : true; // dark by default
   });
   const { config, loading } = useConfiguracion();
+  const { colors: contentColors } = useContentTheme();
   const { signOut } = useAuth();
 
   useEffect(() => {
@@ -158,18 +160,26 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
       </aside>
 
       {/* Main content */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-14 items-center gap-4 border-b border-border bg-card px-4 lg:px-8">
+      <div className="flex flex-1 flex-col overflow-hidden" style={{ backgroundColor: 'var(--content-bg)' }}>
+        <header
+          className="flex h-14 items-center gap-4 border-b px-4 lg:px-8"
+          style={{
+            backgroundColor: 'var(--content-card-bg)',
+            borderColor: 'var(--content-hover-bg)',
+            color: 'var(--content-text-heading)',
+          }}
+        >
           <button
             onClick={() => setSidebarOpen(true)}
-            className="text-muted-foreground hover:text-foreground lg:hidden transition-colors duration-200"
+            className="lg:hidden transition-colors duration-200"
+            style={{ color: 'var(--content-text-secondary)' }}
           >
             <Menu className="h-5 w-5" />
           </button>
-          <h2 className="text-sm font-semibold capitalize text-foreground">{currentPage}</h2>
+          <h2 className="text-sm font-semibold capitalize" style={{ color: 'var(--content-text-heading)' }}>{currentPage}</h2>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-8" style={{ color: 'var(--content-text)' }}>
           <div className="animate-fade-in">
             {children}
           </div>
