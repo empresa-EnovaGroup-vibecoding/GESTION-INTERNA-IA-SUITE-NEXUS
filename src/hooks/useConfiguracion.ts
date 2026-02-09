@@ -11,7 +11,28 @@ export interface ConfigMap {
   monedas_activas: string;
   tasas_cambio: string;
   equipo: string;
+  sidebar_bg: string;
+  sidebar_text: string;
+  sidebar_active_bg: string;
+  sidebar_active_text: string;
+  sidebar_hover_bg: string;
+  sidebar_icon_color: string;
+  sidebar_icon_active: string;
+  sidebar_border: string;
+  sidebar_logo_bg: string;
 }
+
+export const SIDEBAR_DEFAULTS = {
+  sidebar_bg: '#1a1f2e',
+  sidebar_text: '#94a3b8',
+  sidebar_active_bg: '#2d3348',
+  sidebar_active_text: '#ffffff',
+  sidebar_hover_bg: '#232839',
+  sidebar_icon_color: '#64748b',
+  sidebar_icon_active: '#4ef4c2',
+  sidebar_border: '#2d3348',
+  sidebar_logo_bg: '#1e2235',
+};
 
 const DEFAULTS: ConfigMap = {
   empresa_nombre: 'AI Subs',
@@ -23,6 +44,7 @@ const DEFAULTS: ConfigMap = {
   monedas_activas: '["USD","MXN","COP"]',
   tasas_cambio: '{"MXN":17.5,"COP":4200}',
   equipo: '[]',
+  ...SIDEBAR_DEFAULTS,
 };
 
 export function useConfiguracion() {
