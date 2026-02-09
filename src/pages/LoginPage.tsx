@@ -38,7 +38,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <img src="/logo-ia-suite.png" alt="AI Subs logo" className="mx-auto mb-2 h-12 w-12 rounded-lg object-contain" />
-          <CardTitle className="text-xl">AI Subs</CardTitle>
+          <CardTitle className="text-xl">Nexus</CardTitle>
           <CardDescription>
             {isSignUp ? 'Crea una cuenta para acceder' : 'Inicia sesión para continuar'}
           </CardDescription>
