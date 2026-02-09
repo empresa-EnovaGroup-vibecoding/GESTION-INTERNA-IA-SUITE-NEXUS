@@ -10,6 +10,7 @@ import { getWhatsAppNotificationUrl } from '@/lib/whatsapp';
 import { Suscripcion } from '@/types';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import InstallBanner from '@/components/InstallBanner';
 
 export default function Dashboard() {
   const {
@@ -204,6 +205,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <InstallBanner />
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="stat-card">
