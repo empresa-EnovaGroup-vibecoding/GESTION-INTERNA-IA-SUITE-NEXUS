@@ -50,7 +50,7 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  return crypto.randomUUID();
 }
 
 // === Supabase row mappers ===
@@ -216,15 +216,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       await migrateLocalStorageToSupabase();
 
       // Then fetch everything from Supabase
-      const [pRes, cRes, sRes, subRes, tRes, pgRes, coRes] = await Promise.all([
+      const [pRes, cRes, sRes, subRes, pgRes, coRes] = await Promise.all([
         supabaseExternal.from('paneles').select('*'),
         supabaseExternal.from('clientes').select('*'),
         supabaseExternal.from('servicios').select('*'),
         supabaseExternal.from('suscripciones').select('*'),
-        supabaseExternal.from('transacciones').select('*'),
         supabaseExternal.from('pagos').select('*'),
         supabaseExternal.from('cortes').select('*'),
       ]);
+
+      // transacciones table may not exist — handle gracefully
+      const tRes = await supabaseExternal.from('transacciones').select('*');
 
       setPaneles((pRes.data || []).map(rowToPanel));
       setClientes((cRes.data || []).map(rowToCliente));
