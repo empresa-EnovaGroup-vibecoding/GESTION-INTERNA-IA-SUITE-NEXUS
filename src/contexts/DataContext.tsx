@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Panel, Cliente, Servicio, Suscripcion, Transaccion, Pago, EstadoPanel, CredencialHistorial } from '@/types';
-import { addDays, format } from 'date-fns';
+import { Panel, Cliente, Servicio, Suscripcion, Transaccion, Pago, Corte, EstadoPanel, CredencialHistorial } from '@/types';
+import { addDays, format, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 
 interface DataContextType {
   paneles: Panel[];
@@ -9,6 +9,7 @@ interface DataContextType {
   suscripciones: Suscripcion[];
   transacciones: Transaccion[];
   pagos: Pago[];
+  cortes: Corte[];
   // Paneles
   addPanel: (panel: Omit<Panel, 'id' | 'cuposUsados' | 'historialCredenciales'>) => void;
   updatePanel: (panel: Panel) => void;
@@ -35,6 +36,9 @@ interface DataContextType {
   // Pagos
   addPago: (pago: Omit<Pago, 'id'>) => void;
   deletePago: (id: string) => void;
+  // Cortes
+  addCorte: (corte: Omit<Corte, 'id' | 'pagosIds'>) => void;
+  deleteCorte: (id: string) => void;
   // Helpers
   getPanelById: (id: string) => Panel | undefined;
   getCuposDisponibles: (panelId: string) => number;
@@ -171,6 +175,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [suscripciones, setSuscripciones] = useState<Suscripcion[]>(() => loadFromStorage('suscripciones', []));
   const [transacciones, setTransacciones] = useState<Transaccion[]>(() => loadFromStorage('transacciones', []));
   const [pagos, setPagos] = useState<Pago[]>(() => loadFromStorage('pagos', []));
+  const [cortes, setCortes] = useState<Corte[]>(() => loadFromStorage('cortes', []));
 
   useEffect(() => { localStorage.setItem('paneles', JSON.stringify(paneles)); }, [paneles]);
   useEffect(() => { localStorage.setItem('clientes', JSON.stringify(clientes)); }, [clientes]);
@@ -178,6 +183,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { localStorage.setItem('suscripciones', JSON.stringify(suscripciones)); }, [suscripciones]);
   useEffect(() => { localStorage.setItem('transacciones', JSON.stringify(transacciones)); }, [transacciones]);
   useEffect(() => { localStorage.setItem('pagos', JSON.stringify(pagos)); }, [pagos]);
+  useEffect(() => { localStorage.setItem('cortes', JSON.stringify(cortes)); }, [cortes]);
 
   // --- Paneles ---
   const addPanel = useCallback((panel: Omit<Panel, 'id' | 'cuposUsados' | 'historialCredenciales'>) => {
@@ -348,6 +354,53 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setPagos(prev => prev.filter(p => p.id !== id));
   }, []);
 
+  // --- Cortes ---
+  const addCorte = useCallback((corteData: Omit<Corte, 'id' | 'pagosIds'>) => {
+    const corteId = generateId();
+    const monedaTarget = corteData.pais === 'Mexico' ? 'MXN' : 'COP';
+    const corteDate = new Date(corteData.fecha);
+    const weekStart = startOfWeek(corteDate, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(corteDate, { weekStartsOn: 1 });
+
+    // Find all unlinked payments from this country in this week
+    const eligiblePagoIds = pagos
+      .filter(p => {
+        if (p.corteId) return false;
+        if (p.moneda !== monedaTarget) return false;
+        const pagoDate = new Date(p.fecha);
+        if (!isWithinInterval(pagoDate, { start: weekStart, end: weekEnd })) return false;
+        const cliente = clientes.find(c => c.id === p.clienteId);
+        return cliente?.pais === corteData.pais;
+      })
+      .map(p => p.id);
+
+    // Create corte with linked payment IDs
+    setCortes(prev => [...prev, { ...corteData, id: corteId, pagosIds: eligiblePagoIds }]);
+
+    // Update payments: recalculate USD using corte's Binance rate
+    if (corteData.tasaBinance > 0 && eligiblePagoIds.length > 0) {
+      setPagos(prev => prev.map(p => {
+        if (!eligiblePagoIds.includes(p.id)) return p;
+        const newMonto = p.montoOriginal && p.montoOriginal > 0
+          ? Math.round((p.montoOriginal / corteData.tasaBinance) * 100) / 100
+          : p.monto;
+        return { ...p, corteId, monto: newMonto };
+      }));
+    }
+  }, [pagos, clientes]);
+
+  const deleteCorte = useCallback((id: string) => {
+    // Revert linked payments to their original estimated rate
+    setPagos(prev => prev.map(p => {
+      if (p.corteId !== id) return p;
+      const revertedMonto = p.montoOriginal && p.tasaCambio && p.tasaCambio > 0
+        ? Math.round((p.montoOriginal / p.tasaCambio) * 100) / 100
+        : p.monto;
+      return { ...p, corteId: undefined, monto: revertedMonto };
+    }));
+    setCortes(prev => prev.filter(c => c.id !== id));
+  }, []);
+
   // --- Helpers ---
   const getPanelById = useCallback((id: string) => paneles.find(p => p.id === id), [paneles]);
 
@@ -358,13 +411,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      paneles, clientes, servicios, suscripciones, transacciones, pagos,
+      paneles, clientes, servicios, suscripciones, transacciones, pagos, cortes,
       addPanel, updatePanel, deletePanel, rotarCredenciales,
       addCliente, addClienteConSuscripciones, updateCliente, deleteCliente,
       addServicio, updateServicio, deleteServicio, getServicioById,
       addSuscripcion, updateSuscripcion, deleteSuscripcion, getSuscripcionesByCliente,
       addTransaccion, deleteTransaccion,
       addPago, deletePago,
+      addCorte, deleteCorte,
       getPanelById, getCuposDisponibles,
     }}>
       {children}

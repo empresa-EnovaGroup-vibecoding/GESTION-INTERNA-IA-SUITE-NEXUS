@@ -82,6 +82,22 @@ export interface Pago {
   tasaCambio?: number; // 1 USD = X local currency
   metodo: MetodoPago;
   fecha: string;
+  corteId?: string; // linked to a Corte for currency conversion
+}
+
+export interface Corte {
+  id: string;
+  fecha: string;
+  pais: 'Mexico' | 'Colombia';
+  moneda: 'MXN' | 'COP';
+  totalRecaudado: number;
+  comisionPorcentaje: number;
+  totalDespuesComision: number;
+  tasaBinance: number;
+  usdtCalculado: number;
+  usdtRecibidoReal: number;
+  notas?: string;
+  pagosIds: string[];
 }
 
 export type PageView = 'dashboard' | 'paneles' | 'clientes' | 'finanzas' | 'servicios';
