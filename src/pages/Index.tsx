@@ -8,6 +8,7 @@ import PanelesPage from '@/pages/PanelesPage';
 import ClientesPage from '@/pages/ClientesPage';
 import FinanzasPage from '@/pages/FinanzasPage';
 import ServiciosPage from '@/pages/ServiciosPage';
+import ConfiguracionPage from '@/pages/ConfiguracionPage';
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<PageView>('dashboard');
@@ -20,6 +21,7 @@ function AppContent() {
       case 'clientes': return <ClientesPage />;
       case 'finanzas': return <FinanzasPage />;
       case 'servicios': return <ServiciosPage />;
+      case 'configuracion': return <ConfiguracionPage />;
     }
   };
 

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Monitor, Users, DollarSign, Menu, Package, CalendarDays } from 'lucide-react';
+import { LayoutDashboard, Monitor, Users, DollarSign, Menu, Package, CalendarDays, Settings } from 'lucide-react';
 import { PageView } from '@/types';
 import { cn } from '@/lib/utils';
+import { useConfiguracion } from '@/hooks/useConfiguracion';
 
 interface AppLayoutProps {
   currentPage: PageView;
@@ -16,10 +17,12 @@ const navItems: { id: PageView; label: string; icon: React.ElementType }[] = [
   { id: 'clientes', label: 'Clientes', icon: Users },
   { id: 'finanzas', label: 'Finanzas', icon: DollarSign },
   { id: 'servicios', label: 'Servicios', icon: Package },
+  { id: 'configuracion', label: 'Configuración', icon: Settings },
 ];
 
 export default function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { config } = useConfiguracion();
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -43,12 +46,16 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
       >
         {/* Logo */}
         <div className="flex h-16 items-center gap-3 px-6">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary">
-            <Monitor className="h-4 w-4 text-primary-foreground" />
-          </div>
+          {config.empresa_logo_url ? (
+            <img src={config.empresa_logo_url} alt="Logo" className="h-8 w-8 rounded-xl object-cover" />
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary">
+              <Monitor className="h-4 w-4 text-primary-foreground" />
+            </div>
+          )}
           <div>
-            <h1 className="text-[15px] font-bold text-white">AI Subs</h1>
-            <p className="text-[11px] text-white/40">Panel de gestión</p>
+            <h1 className="text-[15px] font-bold text-white">{config.empresa_nombre}</h1>
+            <p className="text-[11px] text-white/40">{config.empresa_subtitulo}</p>
           </div>
         </div>
 
