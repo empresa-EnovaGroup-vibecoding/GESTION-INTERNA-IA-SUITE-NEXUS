@@ -4,10 +4,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Palette, Users, Database, Upload, Plus, Trash2, Save } from 'lucide-react';
-import { useConfiguracion } from '@/hooks/useConfiguracion';
+import { Building2, Palette, Users, Database, Upload, Plus, Trash2, Save, RotateCcw } from 'lucide-react';
+import { useConfiguracion, SIDEBAR_DEFAULTS } from '@/hooks/useConfiguracion';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import SidebarColorPicker, { type SidebarColors } from '@/components/SidebarColorPicker';
+import { applySidebarColor } from '@/lib/sidebarTheme';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface TeamMember {
   nombre: string;
@@ -28,6 +31,9 @@ export default function ConfiguracionPage() {
   // Personalización
   const [colorPrimario, setColorPrimario] = useState('#6366F1');
 
+  // Sidebar colors
+  const [sidebarColors, setSidebarColors] = useState<SidebarColors>({ ...SIDEBAR_DEFAULTS });
+
   // Equipo
   const [equipo, setEquipo] = useState<TeamMember[]>([]);
   const [newMember, setNewMember] = useState<TeamMember>({ nombre: '', rol: '', whatsapp: '' });
@@ -47,6 +53,17 @@ export default function ConfiguracionPage() {
       setColorPrimario(config.color_primario);
       setComisionPorcentaje(config.comision_porcentaje);
       setComisionReceptor(config.comision_receptor);
+      setSidebarColors({
+        sidebar_bg: config.sidebar_bg,
+        sidebar_text: config.sidebar_text,
+        sidebar_active_bg: config.sidebar_active_bg,
+        sidebar_active_text: config.sidebar_active_text,
+        sidebar_hover_bg: config.sidebar_hover_bg,
+        sidebar_icon_color: config.sidebar_icon_color,
+        sidebar_icon_active: config.sidebar_icon_active,
+        sidebar_border: config.sidebar_border,
+        sidebar_logo_bg: config.sidebar_logo_bg,
+      });
       try { setEquipo(JSON.parse(config.equipo)); } catch { setEquipo([]); }
       try {
         const tasas = JSON.parse(config.tasas_cambio);
@@ -95,6 +112,39 @@ export default function ConfiguracionPage() {
     toast.success('Color primario actualizado');
   };
 
+  const handleSidebarColorChange = (key: keyof SidebarColors, value: string) => {
+    setSidebarColors(prev => ({ ...prev, [key]: value }));
+    applySidebarColor(key, value);
+  };
+
+  const saveSidebarColors = async () => {
+    const keys = Object.keys(sidebarColors) as (keyof SidebarColors)[];
+    await Promise.all(keys.map(k => updateConfig(k, sidebarColors[k])));
+    toast.success('Colores del sidebar guardados');
+  };
+
+  const resetSidebarColors = () => {
+    setSidebarColors({ ...SIDEBAR_DEFAULTS });
+    Object.entries(SIDEBAR_DEFAULTS).forEach(([k, v]) => applySidebarColor(k, v));
+    toast.info('Colores restablecidos (guarda para persistir)');
+  };
+
+  const PRESETS: Record<string, { label: string; colors: SidebarColors }> = {
+    oscuro: { label: 'Oscuro Clásico', colors: { ...SIDEBAR_DEFAULTS } },
+    azul: { label: 'Azul Profundo', colors: { sidebar_bg: '#0f1729', sidebar_text: '#7da2c9', sidebar_active_bg: '#1a2744', sidebar_active_text: '#ffffff', sidebar_hover_bg: '#142035', sidebar_icon_color: '#4a7aab', sidebar_icon_active: '#38bdf8', sidebar_border: '#1e2d4a', sidebar_logo_bg: '#0c1220' } },
+    verde: { label: 'Verde Bosque', colors: { sidebar_bg: '#0f1f17', sidebar_text: '#7aad8e', sidebar_active_bg: '#1a3327', sidebar_active_text: '#ffffff', sidebar_hover_bg: '#14291e', sidebar_icon_color: '#4d8b63', sidebar_icon_active: '#34d399', sidebar_border: '#1e3a2b', sidebar_logo_bg: '#0b1a12' } },
+    morado: { label: 'Morado Elegante', colors: { sidebar_bg: '#1a1427', sidebar_text: '#a78bbd', sidebar_active_bg: '#2d1f42', sidebar_active_text: '#ffffff', sidebar_hover_bg: '#221a35', sidebar_icon_color: '#7c5fa0', sidebar_icon_active: '#a78bfa', sidebar_border: '#2d1f42', sidebar_logo_bg: '#15101f' } },
+    claro: { label: 'Claro', colors: { sidebar_bg: '#f8fafc', sidebar_text: '#64748b', sidebar_active_bg: '#e2e8f0', sidebar_active_text: '#0f172a', sidebar_hover_bg: '#f1f5f9', sidebar_icon_color: '#94a3b8', sidebar_icon_active: '#6366f1', sidebar_border: '#e2e8f0', sidebar_logo_bg: '#ffffff' } },
+  };
+
+  const applyPreset = (presetKey: string) => {
+    const preset = PRESETS[presetKey];
+    if (!preset) return;
+    setSidebarColors({ ...preset.colors });
+    Object.entries(preset.colors).forEach(([k, v]) => applySidebarColor(k, v));
+    toast.info(`Preset "${preset.label}" aplicado (guarda para persistir)`);
+  };
+
   const addMember = async () => {
     if (!newMember.nombre.trim()) return;
     const updated = [...equipo, newMember];
@@ -123,7 +173,7 @@ export default function ConfiguracionPage() {
   if (loading) return <div className="flex items-center justify-center h-64 text-muted-foreground">Cargando configuración…</div>;
 
   return (
-    <div className="space-y-8 max-w-3xl">
+    <div className="space-y-8 max-w-4xl">
       <div>
         <h1 className="page-title">Configuración</h1>
         <p className="text-sm text-muted-foreground mt-1">Personaliza tu panel de gestión</p>
@@ -201,6 +251,35 @@ export default function ConfiguracionPage() {
             </div>
           </div>
           <Button size="sm" onClick={saveColor}><Save className="h-4 w-4 mr-1" /> Aplicar color</Button>
+
+          {/* Sidebar colors */}
+          <div className="border-t border-border pt-5 mt-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm font-semibold">Colores del Sidebar</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Personaliza cada parte del panel lateral</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select onValueChange={applyPreset}>
+                  <SelectTrigger className="h-8 w-[160px] text-xs">
+                    <SelectValue placeholder="Presets" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(PRESETS).map(([key, preset]) => (
+                      <SelectItem key={key} value={key} className="text-xs">{preset.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <SidebarColorPicker colors={sidebarColors} onChange={handleSidebarColorChange} />
+
+            <div className="flex items-center gap-2 pt-2">
+              <Button size="sm" onClick={saveSidebarColors}><Save className="h-4 w-4 mr-1" /> Aplicar colores</Button>
+              <Button size="sm" variant="outline" onClick={resetSidebarColors}><RotateCcw className="h-4 w-4 mr-1" /> Restablecer</Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

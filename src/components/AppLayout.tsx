@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Monitor, Users, DollarSign, Menu, Package, CalendarDays, Settings } from 'lucide-react';
 import { PageView } from '@/types';
 import { cn } from '@/lib/utils';
 import { useConfiguracion } from '@/hooks/useConfiguracion';
+import { applySidebarTheme } from '@/lib/sidebarTheme';
 
 interface AppLayoutProps {
   currentPage: PageView;
@@ -22,7 +23,11 @@ const navItems: { id: PageView; label: string; icon: React.ElementType }[] = [
 
 export default function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { config } = useConfiguracion();
+  const { config, loading } = useConfiguracion();
+
+  useEffect(() => {
+    if (!loading) applySidebarTheme(config);
+  }, [loading, config]);
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -41,27 +46,27 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
         style={{
-          background: 'linear-gradient(180deg, #1A1A2E 0%, #16213E 100%)',
+          background: 'var(--sidebar-bg, #1a1f2e)',
         }}
       >
         {/* Logo */}
-        <div className="flex h-16 items-center gap-3 px-6">
+        <div className="flex h-16 items-center gap-3 px-6" style={{ backgroundColor: 'var(--sidebar-logo-bg, #1e2235)' }}>
           {config.empresa_logo_url ? (
             <img src={config.empresa_logo_url} alt="Logo" className="h-8 w-8 rounded-xl object-cover" />
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ backgroundColor: 'var(--sidebar-icon-active, #4ef4c2)' }}>
               <Monitor className="h-4 w-4 text-primary-foreground" />
             </div>
           )}
           <div>
-            <h1 className="text-[15px] font-bold text-white">{config.empresa_nombre}</h1>
-            <p className="text-[11px] text-white/40">{config.empresa_subtitulo}</p>
+            <h1 className="text-[15px] font-bold" style={{ color: 'var(--sidebar-active-text, #fff)' }}>{config.empresa_nombre}</h1>
+            <p className="text-[11px]" style={{ color: 'var(--sidebar-text, #94a3b8)', opacity: 0.5 }}>{config.empresa_subtitulo}</p>
           </div>
         </div>
 
         {/* Nav */}
         <nav className="flex-1 space-y-1 px-3 pt-4">
-          <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-white/30">
+          <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color: 'var(--sidebar-text, #94a3b8)', opacity: 0.4 }}>
             Menú
           </p>
           {navItems.map((item) => {
@@ -74,22 +79,34 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
                   onNavigate(item.id);
                   setSidebarOpen(false);
                 }}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all duration-200",
-                  isActive
-                    ? "bg-white/10 text-white border-l-[3px] border-primary"
-                    : "text-white/60 hover:bg-white/[0.06] hover:text-white/90 border-l-[3px] border-transparent"
-                )}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all duration-200 border-l-[3px]"
+                style={{
+                  backgroundColor: isActive ? 'var(--sidebar-active-bg, #2d3348)' : undefined,
+                  color: isActive ? 'var(--sidebar-active-text, #fff)' : 'var(--sidebar-text, #94a3b8)',
+                  borderColor: isActive ? 'var(--sidebar-icon-active, #4ef4c2)' : 'transparent',
+                }}
+                onMouseEnter={e => {
+                  if (!isActive) {
+                    (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--sidebar-hover-bg, #232839)';
+                    (e.currentTarget as HTMLElement).style.color = 'var(--sidebar-active-text, #fff)';
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) {
+                    (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
+                    (e.currentTarget as HTMLElement).style.color = 'var(--sidebar-text, #94a3b8)';
+                  }
+                }}
               >
-                <Icon className="h-[18px] w-[18px]" />
+                <Icon className="h-[18px] w-[18px]" style={{ color: isActive ? 'var(--sidebar-icon-active, #4ef4c2)' : 'var(--sidebar-icon-color, #64748b)' }} />
                 {item.label}
               </button>
             );
           })}
         </nav>
 
-        <div className="border-t border-white/10 p-4">
-          <p className="text-[11px] text-white/30">v1.0 · Gestión Interna</p>
+        <div className="p-4" style={{ borderTop: `1px solid var(--sidebar-border, #2d3348)` }}>
+          <p className="text-[11px]" style={{ color: 'var(--sidebar-text, #94a3b8)', opacity: 0.4 }}>v1.0 · Gestión Interna</p>
         </div>
       </aside>
 
