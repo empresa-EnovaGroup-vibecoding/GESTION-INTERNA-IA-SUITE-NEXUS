@@ -27,8 +27,17 @@ export const CONTENT_DEFAULTS_DARK: ContentColors = {
   content_text_heading: '#f8fafc',
 };
 
-const STORAGE_KEY = 'content-theme-colors';
+const STORAGE_KEY_LIGHT = 'content-theme-colors-light';
+const STORAGE_KEY_DARK = 'content-theme-colors-dark';
 const CUSTOM_FLAG_KEY = 'content-theme-custom';
+
+function getStorageKey(isDark: boolean) {
+  return isDark ? STORAGE_KEY_DARK : STORAGE_KEY_LIGHT;
+}
+
+function isDarkMode() {
+  return document.documentElement.classList.contains('dark');
+}
 
 function cssVarName(key: string) {
   return `--${key.replace(/_/g, '-')}`;
@@ -56,17 +65,39 @@ export function isContentCustomized(): boolean {
   return localStorage.getItem(CUSTOM_FLAG_KEY) === 'true';
 }
 
+function loadColorsForMode(dark: boolean): ContentColors {
+  try {
+    const saved = localStorage.getItem(getStorageKey(dark));
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return dark ? { ...CONTENT_DEFAULTS_DARK } : { ...CONTENT_DEFAULTS };
+}
+
 export function useContentTheme() {
   const [isCustom, setIsCustom] = useState(() => isContentCustomized());
+  const [colors, setColors] = useState<ContentColors>(() => loadColorsForMode(isDarkMode()));
 
-  const [colors, setColors] = useState<ContentColors>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    const isDark = document.documentElement.classList.contains('dark');
-    return isDark ? { ...CONTENT_DEFAULTS_DARK } : { ...CONTENT_DEFAULTS };
-  });
+  // Watch for dark mode changes via MutationObserver
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const dark = isDarkMode();
+      if (isCustom) {
+        const modeColors = loadColorsForMode(dark);
+        setColors(modeColors);
+      } else {
+        clearContentVars();
+        const defaults = dark ? CONTENT_DEFAULTS_DARK : CONTENT_DEFAULTS;
+        setColors({ ...defaults });
+      }
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => observer.disconnect();
+  }, [isCustom]);
 
   // Apply on mount and when colors change
   useEffect(() => {
@@ -75,7 +106,8 @@ export function useContentTheme() {
     } else {
       clearContentVars();
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(colors));
+    const dark = isDarkMode();
+    localStorage.setItem(getStorageKey(dark), JSON.stringify(colors));
     localStorage.setItem(CUSTOM_FLAG_KEY, String(isCustom));
   }, [colors, isCustom]);
 
@@ -86,8 +118,8 @@ export function useContentTheme() {
   }, []);
 
   const resetColors = useCallback(() => {
-    const isDark = document.documentElement.classList.contains('dark');
-    const defaults = isDark ? CONTENT_DEFAULTS_DARK : CONTENT_DEFAULTS;
+    const dark = isDarkMode();
+    const defaults = dark ? CONTENT_DEFAULTS_DARK : CONTENT_DEFAULTS;
     setColors({ ...defaults });
     setIsCustom(false);
     clearContentVars();

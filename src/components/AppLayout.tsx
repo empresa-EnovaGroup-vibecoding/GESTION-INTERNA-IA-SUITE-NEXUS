@@ -31,13 +31,15 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
     return saved ? saved === 'dark' : true; // dark by default
   });
   const { config, loading } = useConfiguracion();
-  const { isCustom } = useContentTheme();
+  const { isCustom, resetColors } = useContentTheme();
   const { signOut } = useAuth();
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
     localStorage.setItem('theme', darkMode ? 'dark' : 'light');
-  }, [darkMode]);
+    // Reset content colors to match the new mode
+    resetColors();
+  }, [darkMode, resetColors]);
 
   useEffect(() => {
     if (!loading) {

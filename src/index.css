@@ -55,6 +55,14 @@
     --sidebar-border: 240 20% 22%;
     --sidebar-ring: 175 83% 32%;
     --sidebar-muted: 215 16% 55%;
+
+    /* Content theme defaults - light */
+    --content-bg: #ffffff;
+    --content-card-bg: #ffffff;
+    --content-hover-bg: #f1f5f9;
+    --content-text: #1e293b;
+    --content-text-secondary: #64748b;
+    --content-text-heading: #0f172a;
   }
 
   .dark {
@@ -104,6 +112,14 @@
     --sidebar-border: 0 0% 18%;
     --sidebar-ring: 175 83% 32%;
     --sidebar-muted: 215 15% 50%;
+
+    /* Content theme defaults - dark */
+    --content-bg: #19191a;
+    --content-card-bg: #1e1e20;
+    --content-hover-bg: #252527;
+    --content-text: #e2e8f0;
+    --content-text-secondary: #94a3b8;
+    --content-text-heading: #f8fafc;
   }
 }
 
