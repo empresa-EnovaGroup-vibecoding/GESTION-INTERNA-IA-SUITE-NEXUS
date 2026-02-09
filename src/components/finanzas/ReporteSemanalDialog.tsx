@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
 import {
-  format, startOfWeek, endOfWeek, isWithinInterval,
-  addDays, subWeeks, addWeeks, startOfDay,
+  format, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
+  isWithinInterval, addDays, subWeeks, addWeeks, subMonths, addMonths,
+  startOfDay,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ClipboardCopy, FileText, ChevronLeft, ChevronRight, CalendarIcon } from 'lucide-react';
@@ -17,23 +18,32 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
+type ReportMode = 'semanal' | 'mensual';
+
 export default function ReporteSemanalDialog() {
   const [open, setOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
+  const [mode, setMode] = useState<ReportMode>('semanal');
   const { clientes, suscripciones, pagos, paneles, getServicioById } = useData();
 
-  const weekStart = startOfWeek(startOfDay(selectedDay), { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(startOfDay(selectedDay), { weekStartsOn: 1 });
+  // Period boundaries
+  const periodStart = mode === 'semanal'
+    ? startOfWeek(startOfDay(selectedDay), { weekStartsOn: 1 })
+    : startOfMonth(startOfDay(selectedDay));
+  const periodEnd = mode === 'semanal'
+    ? endOfWeek(startOfDay(selectedDay), { weekStartsOn: 1 })
+    : endOfMonth(startOfDay(selectedDay));
 
   const reporte = useMemo(() => {
-    const nextWeekStart = addDays(weekEnd, 1);
-    const nextWeekEnd = addDays(nextWeekStart, 6);
+    const nextPeriodStart = addDays(periodEnd, 1);
+    const nextPeriodEnd = mode === 'semanal'
+      ? addDays(nextPeriodStart, 6)
+      : endOfMonth(nextPeriodStart);
 
-    const inWeek = (dateStr: string) =>
-      isWithinInterval(new Date(dateStr), { start: weekStart, end: weekEnd });
+    const inPeriod = (dateStr: string) =>
+      isWithinInterval(new Date(dateStr), { start: periodStart, end: periodEnd });
 
     // --- Nuevos clientes ---
-    // Clients whose earliest subscription started this week
     const nuevosClientes: { nombre: string; servicio: string }[] = [];
     for (const cliente of clientes) {
       const subs = suscripciones.filter(s => s.clienteId === cliente.id);
@@ -41,7 +51,7 @@ export default function ReporteSemanalDialog() {
       const earliest = [...subs].sort(
         (a, b) => new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime()
       )[0];
-      if (inWeek(earliest.fechaInicio)) {
+      if (inPeriod(earliest.fechaInicio)) {
         const servicio = getServicioById(earliest.servicioId);
         nuevosClientes.push({
           nombre: cliente.nombre,
@@ -53,8 +63,7 @@ export default function ReporteSemanalDialog() {
     // --- Renovaciones ---
     const renovaciones: { cliente: string; servicio: string }[] = [];
     for (const sub of suscripciones) {
-      if (!inWeek(sub.fechaInicio)) continue;
-      // It's a renewal if there's an older sub with the same service for the same client
+      if (!inPeriod(sub.fechaInicio)) continue;
       const isRenewal = suscripciones.some(
         s => s.clienteId === sub.clienteId && s.servicioId === sub.servicioId &&
           s.id !== sub.id && new Date(s.fechaInicio).getTime() < new Date(sub.fechaInicio).getTime()
@@ -70,24 +79,24 @@ export default function ReporteSemanalDialog() {
     }
 
     // --- Pagos ---
-    const pagosSemanales = pagos.filter(p => inWeek(p.fecha));
-    const totalUSD = pagosSemanales
+    const pagosPeriodo = pagos.filter(p => inPeriod(p.fecha));
+    const totalUSD = pagosPeriodo
       .filter(p => !p.moneda || p.moneda === 'USD')
       .reduce((sum, p) => sum + p.monto, 0);
-    const totalMXN = pagosSemanales
+    const totalMXN = pagosPeriodo
       .filter(p => p.moneda === 'MXN')
       .reduce((sum, p) => sum + (p.montoOriginal || 0), 0);
-    const totalCOP = pagosSemanales
+    const totalCOP = pagosPeriodo
       .filter(p => p.moneda === 'COP')
       .reduce((sum, p) => sum + (p.montoOriginal || 0), 0);
-    const totalPagosUSD = pagosSemanales.reduce((sum, p) => sum + p.monto, 0);
+    const totalPagosUSD = pagosPeriodo.reduce((sum, p) => sum + p.monto, 0);
 
-    // --- Vencimientos próxima semana ---
+    // --- Vencimientos próximo periodo ---
     const vencimientosProx: { cliente: string; servicio: string; fecha: string }[] = [];
     for (const sub of suscripciones) {
       if (sub.estado !== 'activa') continue;
       const venc = new Date(sub.fechaVencimiento);
-      if (isWithinInterval(venc, { start: nextWeekStart, end: nextWeekEnd })) {
+      if (isWithinInterval(venc, { start: nextPeriodStart, end: nextPeriodEnd })) {
         const cliente = clientes.find(c => c.id === sub.clienteId);
         const servicio = getServicioById(sub.servicioId);
         vencimientosProx.push({
@@ -99,33 +108,58 @@ export default function ReporteSemanalDialog() {
     }
 
     // --- Ganancia neta ---
-    const totalGastosSemanal = paneles
+    const divisor = mode === 'semanal' ? 4 : 1;
+    const totalGastosPeriodo = paneles
       .filter(p => p.estado === 'activo')
-      .reduce((sum, p) => sum + (p.costoMensual / 4), 0); // prorrateado semanal
-    const gananciaNeta = Math.round((totalPagosUSD - totalGastosSemanal) * 100) / 100;
+      .reduce((sum, p) => sum + (p.costoMensual / divisor), 0);
+    const gananciaNeta = Math.round((totalPagosUSD - totalGastosPeriodo) * 100) / 100;
+
+    // --- Monthly extras ---
+    const clientesActivosTotal = mode === 'mensual'
+      ? new Set(suscripciones.filter(s => s.estado === 'activa').map(s => s.clienteId)).size
+      : 0;
+    const cancelaciones = mode === 'mensual'
+      ? suscripciones.filter(s => s.estado === 'cancelada' && inPeriod(s.fechaInicio)).length
+      : 0;
 
     return {
       nuevosClientes, renovaciones,
-      pagosCount: pagosSemanales.length,
+      pagosCount: pagosPeriodo.length,
       totalUSD: Math.round(totalUSD * 100) / 100,
       totalMXN: Math.round(totalMXN),
       totalCOP: Math.round(totalCOP),
       totalPagosUSD: Math.round(totalPagosUSD * 100) / 100,
       vencimientosProx,
       gananciaNeta,
-      totalGastosSemanal: Math.round(totalGastosSemanal * 100) / 100,
+      totalGastosPeriodo: Math.round(totalGastosPeriodo * 100) / 100,
+      clientesActivosTotal,
+      cancelaciones,
     };
-  }, [clientes, suscripciones, pagos, paneles, getServicioById, weekStart, weekEnd]);
+  }, [clientes, suscripciones, pagos, paneles, getServicioById, periodStart, periodEnd, mode]);
+
+  const periodLabel = mode === 'semanal'
+    ? `${format(periodStart, 'dd MMM', { locale: es })} — ${format(periodEnd, 'dd MMM yyyy', { locale: es })}`
+    : format(periodStart, 'MMMM yyyy', { locale: es });
 
   const buildReporteText = () => {
     const r = reporte;
     const lines: string[] = [];
+    const titulo = mode === 'semanal' ? 'REPORTE SEMANAL' : 'REPORTE MENSUAL';
+    const periodoTexto = mode === 'semanal'
+      ? `Semana del ${format(periodStart, 'dd MMM', { locale: es })} al ${format(periodEnd, 'dd MMM yyyy', { locale: es })}`
+      : `Mes de ${format(periodStart, 'MMMM yyyy', { locale: es })}`;
 
-    lines.push(`📊 *REPORTE SEMANAL*`);
-    lines.push(`📅 Semana del ${format(weekStart, 'dd MMM', { locale: es })} al ${format(weekEnd, 'dd MMM yyyy', { locale: es })}`);
+    lines.push(`📊 *${titulo}*`);
+    lines.push(`📅 ${periodoTexto}`);
     lines.push('');
 
-    // Nuevos clientes
+    if (mode === 'mensual') {
+      lines.push(`📋 *Resumen general*`);
+      lines.push(`   Clientes activos: ${r.clientesActivosTotal}`);
+      lines.push(`   Cancelaciones: ${r.cancelaciones}`);
+      lines.push('');
+    }
+
     lines.push(`👤 *Nuevos clientes (${r.nuevosClientes.length})*`);
     if (r.nuevosClientes.length === 0) {
       lines.push('   Sin nuevos clientes');
@@ -136,7 +170,6 @@ export default function ReporteSemanalDialog() {
     }
     lines.push('');
 
-    // Renovaciones
     lines.push(`🔄 *Renovaciones (${r.renovaciones.length})*`);
     if (r.renovaciones.length === 0) {
       lines.push('   Sin renovaciones');
@@ -147,7 +180,6 @@ export default function ReporteSemanalDialog() {
     }
     lines.push('');
 
-    // Pagos
     lines.push(`💰 *Pagos recibidos (${r.pagosCount})*`);
     const monedas: string[] = [];
     if (r.totalUSD > 0) monedas.push(`$${r.totalUSD} USD`);
@@ -156,8 +188,8 @@ export default function ReporteSemanalDialog() {
     lines.push(`   ${monedas.length > 0 ? monedas.join(' · ') : '$0 USD'}`);
     lines.push('');
 
-    // Vencimientos
-    lines.push(`⚠️ *Vencimientos próxima semana (${r.vencimientosProx.length})*`);
+    const vencLabel = mode === 'semanal' ? 'próxima semana' : 'próximo mes';
+    lines.push(`⚠️ *Vencimientos ${vencLabel} (${r.vencimientosProx.length})*`);
     if (r.vencimientosProx.length === 0) {
       lines.push('   Sin vencimientos');
     } else {
@@ -167,10 +199,10 @@ export default function ReporteSemanalDialog() {
     }
     lines.push('');
 
-    // Ganancia
     lines.push(`📈 *Resumen financiero*`);
     lines.push(`   Ingresos: $${r.totalPagosUSD} USD`);
-    lines.push(`   Gastos (prorrateo): $${r.totalGastosSemanal} USD`);
+    const gastoLabel = mode === 'semanal' ? 'Gastos (prorrateo)' : 'Gastos';
+    lines.push(`   ${gastoLabel}: $${r.totalGastosPeriodo} USD`);
     lines.push(`   *Ganancia neta: $${r.gananciaNeta} USD*`);
 
     return lines.join('\n');
@@ -182,36 +214,69 @@ export default function ReporteSemanalDialog() {
     toast.success('Reporte copiado al portapapeles');
   };
 
-  const r = reporte;
-  const isCurrentWeek = format(weekStart, 'yyyy-MM-dd') === format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const isCurrent = mode === 'semanal'
+    ? format(periodStart, 'yyyy-MM-dd') === format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+    : format(periodStart, 'yyyy-MM') === format(new Date(), 'yyyy-MM');
 
+  const handlePrev = () => {
+    setSelectedDay(d => mode === 'semanal' ? subWeeks(d, 1) : subMonths(d, 1));
+  };
+  const handleNext = () => {
+    setSelectedDay(d => mode === 'semanal' ? addWeeks(d, 1) : addMonths(d, 1));
+  };
   const handleDateSelect = (date: Date | undefined) => {
     if (date) setSelectedDay(date);
   };
+
+  const r = reporte;
+  const vencLabel = mode === 'semanal' ? 'Vencimientos próxima semana' : 'Vencimientos próximo mes';
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5">
           <FileText className="h-4 w-4" />
-          Reporte Semanal
+          Generar Reporte
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Reporte Semanal
+            {mode === 'semanal' ? 'Reporte Semanal' : 'Reporte Mensual'}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 text-sm">
-          {/* Week selector */}
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost" size="icon" className="h-8 w-8"
-              onClick={() => setSelectedDay(d => subWeeks(d, 1))}
+          {/* Mode toggle */}
+          <div className="flex rounded-lg border border-border bg-muted/50 p-0.5">
+            <button
+              onClick={() => setMode('semanal')}
+              className={cn(
+                'flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                mode === 'semanal'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
             >
+              Semanal
+            </button>
+            <button
+              onClick={() => setMode('mensual')}
+              className={cn(
+                'flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                mode === 'mensual'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Mensual
+            </button>
+          </div>
+
+          {/* Period selector */}
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handlePrev}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
 
@@ -220,12 +285,12 @@ export default function ReporteSemanalDialog() {
                 <Button
                   variant="outline"
                   className={cn(
-                    'flex-1 justify-center gap-2 text-sm font-semibold',
-                    isCurrentWeek && 'border-primary/50'
+                    'flex-1 justify-center gap-2 text-sm font-semibold capitalize',
+                    isCurrent && 'border-primary/50'
                   )}
                 >
                   <CalendarIcon className="h-4 w-4" />
-                  {format(weekStart, 'dd MMM', { locale: es })} — {format(weekEnd, 'dd MMM yyyy', { locale: es })}
+                  {periodLabel}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="center">
@@ -239,30 +304,39 @@ export default function ReporteSemanalDialog() {
               </PopoverContent>
             </Popover>
 
-            <Button
-              variant="ghost" size="icon" className="h-8 w-8"
-              onClick={() => setSelectedDay(d => addWeeks(d, 1))}
-            >
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleNext}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
 
-          {!isCurrentWeek && (
+          {!isCurrent && (
             <button
               onClick={() => setSelectedDay(new Date())}
               className="w-full text-center text-[11px] text-primary hover:underline"
             >
-              Ir a semana actual
+              Ir a {mode === 'semanal' ? 'semana' : 'mes'} actual
             </button>
           )}
 
+          {/* Monthly summary */}
+          {mode === 'mensual' && (
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <h4 className="text-xs font-semibold flex items-center gap-1.5 mb-2">📋 Resumen general</h4>
+              <div className="grid grid-cols-2 gap-3 text-center">
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Clientes activos</p>
+                  <p className="text-lg font-bold">{r.clientesActivosTotal}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Cancelaciones</p>
+                  <p className="text-lg font-bold text-destructive">{r.cancelaciones}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Nuevos clientes */}
-          <Section
-            emoji="👤"
-            title="Nuevos clientes"
-            count={r.nuevosClientes.length}
-            color="text-emerald-500"
-          >
+          <Section emoji="👤" title="Nuevos clientes" count={r.nuevosClientes.length} color="text-emerald-500">
             {r.nuevosClientes.length === 0 ? (
               <EmptyLine />
             ) : (
@@ -312,7 +386,7 @@ export default function ReporteSemanalDialog() {
           </Section>
 
           {/* Vencimientos */}
-          <Section emoji="⚠️" title="Vencimientos próxima semana" count={r.vencimientosProx.length} color="text-warning">
+          <Section emoji="⚠️" title={vencLabel} count={r.vencimientosProx.length} color="text-warning">
             {r.vencimientosProx.length === 0 ? (
               <EmptyLine />
             ) : (
@@ -334,8 +408,10 @@ export default function ReporteSemanalDialog() {
                 <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">${r.totalPagosUSD}</p>
               </div>
               <div>
-                <p className="text-[10px] text-muted-foreground">Gastos (prorrateo)</p>
-                <p className="text-sm font-semibold text-destructive">${r.totalGastosSemanal}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {mode === 'semanal' ? 'Gastos (prorrateo)' : 'Gastos'}
+                </p>
+                <p className="text-sm font-semibold text-destructive">${r.totalGastosPeriodo}</p>
               </div>
               <div>
                 <p className="text-[10px] text-muted-foreground">Ganancia neta</p>
