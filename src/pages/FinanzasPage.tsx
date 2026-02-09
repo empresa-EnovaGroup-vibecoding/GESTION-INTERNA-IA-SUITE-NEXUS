@@ -14,6 +14,7 @@ import ResumenPorPais from '@/components/finanzas/ResumenPorPais';
 import RegistrarPagoDialog from '@/components/finanzas/RegistrarPagoDialog';
 import NuevoCorteDialog from '@/components/finanzas/NuevoCorteDialog';
 import CortesHistorial from '@/components/finanzas/CortesHistorial';
+import ReporteSemanalDialog from '@/components/finanzas/ReporteSemanalDialog';
 
 export default function FinanzasPage() {
   const { paneles, suscripciones, pagos, clientes, cortes } = useData();
@@ -114,6 +115,7 @@ export default function FinanzasPage() {
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
+          <ReporteSemanalDialog />
           <NuevoCorteDialog />
           <RegistrarPagoDialog />
         </div>
