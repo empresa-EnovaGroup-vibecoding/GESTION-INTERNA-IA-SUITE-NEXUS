@@ -1,11 +1,14 @@
 import { useState, useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Panel } from '@/types';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import PanelCard from '@/components/PanelCard';
 import PanelFormDialog from '@/components/PanelFormDialog';
-import PanelCaidoDialog from '@/components/PanelCaidoDialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const SERVICIOS_FILTER = ['Todos', 'ChatGPT', 'CapCut', 'Canva', 'Veo 3', 'Claude', 'Midjourney'];
 
@@ -13,28 +16,19 @@ export default function PanelesPage() {
   const { paneles, deletePanel } = useData();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Panel | null>(null);
-  const [caidoPanel, setCaidoPanel] = useState<Panel | null>(null);
-  const [caidoOpen, setCaidoOpen] = useState(false);
-  const [filterEstado, setFilterEstado] = useState<'todos' | 'activos' | 'caidos'>('todos');
   const [filterServicio, setFilterServicio] = useState('Todos');
+  const [deleteTarget, setDeleteTarget] = useState<Panel | null>(null);
 
   const filtered = useMemo(() => {
     return paneles.filter(p => {
-      if (filterEstado === 'activos' && p.estado !== 'activo') return false;
-      if (filterEstado === 'caidos' && p.estado !== 'caido') return false;
       if (filterServicio !== 'Todos' && !p.servicioAsociado?.toLowerCase().includes(filterServicio.toLowerCase())) return false;
       return true;
     });
-  }, [paneles, filterEstado, filterServicio]);
+  }, [paneles, filterServicio]);
 
   const handleEdit = (panel: Panel) => {
     setEditing(panel);
     setFormOpen(true);
-  };
-
-  const handleMarkCaido = (panel: Panel) => {
-    setCaidoPanel(panel);
-    setCaidoOpen(true);
   };
 
   return (
@@ -53,21 +47,6 @@ export default function PanelesPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex rounded-lg border border-border overflow-hidden">
-          {(['todos', 'activos', 'caidos'] as const).map(f => (
-            <button
-              key={f}
-              onClick={() => setFilterEstado(f)}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                filterEstado === f
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-card text-muted-foreground hover:bg-accent'
-              }`}
-            >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
-        </div>
         <div className="flex flex-wrap gap-1">
           {SERVICIOS_FILTER.map(s => (
             <button
@@ -93,9 +72,7 @@ export default function PanelesPage() {
           </div>
           <p className="text-sm font-medium">No hay paneles</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {filterEstado !== 'todos' || filterServicio !== 'Todos'
-              ? 'Intenta cambiar los filtros'
-              : 'Agrega tu primer panel de IA'}
+            {filterServicio !== 'Todos' ? 'Intenta cambiar los filtros' : 'Agrega tu primer panel de IA'}
           </p>
         </div>
       ) : (
@@ -105,7 +82,6 @@ export default function PanelesPage() {
               key={panel.id}
               panel={panel}
               onEdit={handleEdit}
-              onMarkCaido={handleMarkCaido}
             />
           ))}
         </div>
@@ -116,11 +92,6 @@ export default function PanelesPage() {
         open={formOpen}
         onOpenChange={(v) => { setFormOpen(v); if (!v) setEditing(null); }}
         editing={editing}
-      />
-      <PanelCaidoDialog
-        panel={caidoPanel}
-        open={caidoOpen}
-        onOpenChange={(v) => { setCaidoOpen(v); if (!v) setCaidoPanel(null); }}
       />
     </div>
   );

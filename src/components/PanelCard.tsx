@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { Panel } from '@/types';
-import { useData } from '@/contexts/DataContext';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Edit2, Trash2, Eye, EyeOff, Copy, Check, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Edit2, Eye, EyeOff, Copy, Check, ChevronDown, ChevronUp, History } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import PanelHistorial from './PanelHistorial';
 
 const SERVICE_COLORS: Record<string, string> = {
   'ChatGPT': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
@@ -28,29 +26,26 @@ function getServiceColor(service: string) {
 interface PanelCardProps {
   panel: Panel;
   onEdit: (panel: Panel) => void;
-  onMarkCaido: (panel: Panel) => void;
 }
 
-export default function PanelCard({ panel, onEdit, onMarkCaido }: PanelCardProps) {
-  const { getPanelById } = useData();
+export default function PanelCard({ panel, onEdit }: PanelCardProps) {
   const [showPassword, setShowPassword] = useState(false);
-  const [copiedField, setCopiedField] = useState<'email' | 'password' | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showHistorial, setShowHistorial] = useState(false);
 
-  const isCaido = panel.estado === 'caido';
   const cuposDisponibles = panel.capacidadTotal - panel.cuposUsados;
   const porcentajeUso = (panel.cuposUsados / panel.capacidadTotal) * 100;
-  const reemplazo = panel.reemplazadoPorId ? getPanelById(panel.reemplazadoPorId) : null;
+  const historial = panel.historialCredenciales || [];
 
-  const copyToClipboard = (text: string, field: 'email' | 'password') => {
+  const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(field);
-    toast.success(`${field === 'email' ? 'Email' : 'Password'} copiado`);
+    toast.success('Copiado al portapapeles');
     setTimeout(() => setCopiedField(null), 2000);
   };
 
   return (
-    <div className={`stat-card space-y-3 ${isCaido ? 'opacity-60 border-destructive/30' : ''}`}>
+    <div className="stat-card space-y-3">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="space-y-1">
@@ -60,50 +55,49 @@ export default function PanelCard({ panel, onEdit, onMarkCaido }: PanelCardProps
           )}
         </div>
         <div className="flex items-center gap-1.5">
-          <Badge className={`text-[10px] px-2 py-0.5 ${getServiceColor(panel.servicioAsociado)}`}>
-            {panel.servicioAsociado}
-          </Badge>
+          {panel.servicioAsociado && (
+            <Badge className={`text-[10px] px-2 py-0.5 ${getServiceColor(panel.servicioAsociado)}`}>
+              {panel.servicioAsociado}
+            </Badge>
+          )}
           <Badge
-            variant={isCaido ? 'destructive' : 'default'}
-            className={`text-[10px] px-2 py-0.5 ${!isCaido ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-transparent' : ''}`}
+            variant="default"
+            className="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-transparent"
           >
-            {isCaido ? 'CAÍDO' : 'ACTIVO'}
+            ACTIVO
           </Badge>
         </div>
       </div>
 
-      {/* Reemplazo link */}
-      {isCaido && reemplazo && (
-        <p className="text-xs text-muted-foreground">
-          Reemplazado por: <span className="font-medium text-foreground">{reemplazo.nombre}</span>
+      {/* Credenciales actuales */}
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+          Credenciales actuales
+          {panel.credencialFechaInicio && (
+            <span className="normal-case tracking-normal ml-1">
+              (desde {format(new Date(panel.credencialFechaInicio), 'dd MMM yyyy', { locale: es })})
+            </span>
+          )}
         </p>
-      )}
-
-      {/* Email */}
-      <div className="flex items-center gap-2 text-xs">
-        <span className="text-muted-foreground shrink-0">Email:</span>
-        <span className="font-mono truncate">{panel.email}</span>
-        <button
-          onClick={() => copyToClipboard(panel.email, 'email')}
-          className="shrink-0 text-muted-foreground hover:text-foreground"
-        >
-          {copiedField === 'email' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
-        </button>
-      </div>
-
-      {/* Password */}
-      <div className="flex items-center gap-2 text-xs">
-        <span className="text-muted-foreground shrink-0">Password:</span>
-        <span className="font-mono">{showPassword ? panel.password : '••••••••'}</span>
-        <button onClick={() => setShowPassword(!showPassword)} className="shrink-0 text-muted-foreground hover:text-foreground">
-          {showPassword ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-        </button>
-        <button
-          onClick={() => copyToClipboard(panel.password, 'password')}
-          className="shrink-0 text-muted-foreground hover:text-foreground"
-        >
-          {copiedField === 'password' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
-        </button>
+        {/* Email */}
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-muted-foreground shrink-0">Email:</span>
+          <span className="font-mono truncate">{panel.email}</span>
+          <button onClick={() => copyToClipboard(panel.email, 'email')} className="shrink-0 text-muted-foreground hover:text-foreground">
+            {copiedField === 'email' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+          </button>
+        </div>
+        {/* Password */}
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-muted-foreground shrink-0">Password:</span>
+          <span className="font-mono">{showPassword ? panel.password : '••••••••'}</span>
+          <button onClick={() => setShowPassword(!showPassword)} className="shrink-0 text-muted-foreground hover:text-foreground">
+            {showPassword ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+          </button>
+          <button onClick={() => copyToClipboard(panel.password, 'password')} className="shrink-0 text-muted-foreground hover:text-foreground">
+            {copiedField === 'password' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+          </button>
+        </div>
       </div>
 
       {/* Capacidad */}
@@ -131,17 +125,24 @@ export default function PanelCard({ panel, onEdit, onMarkCaido }: PanelCardProps
         <span>Exp: {format(new Date(panel.fechaExpiracion), 'dd MMM yyyy', { locale: es })}</span>
       </div>
 
-      {/* Historial toggle */}
-      {panel.historial && panel.historial.length > 0 && (
+      {/* Historial de Credenciales */}
+      {historial.length > 0 && (
         <div>
           <button
             onClick={() => setShowHistorial(!showHistorial)}
             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
+            <History className="h-3 w-3" />
             {showHistorial ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            Historial ({panel.historial.length})
+            Historial de Credenciales ({historial.length})
           </button>
-          {showHistorial && <PanelHistorial historial={panel.historial} />}
+          {showHistorial && (
+            <div className="mt-2 space-y-2 pl-2 border-l-2 border-border">
+              {historial.map((entry, i) => (
+                <CredencialHistorialEntry key={i} entry={entry} index={i} />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -150,16 +151,44 @@ export default function PanelCard({ panel, onEdit, onMarkCaido }: PanelCardProps
         <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => onEdit(panel)}>
           <Edit2 className="h-3 w-3" /> Editar
         </Button>
-        {!isCaido && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
-            onClick={() => onMarkCaido(panel)}
-          >
-            <AlertTriangle className="h-3 w-3" /> Marcar Caído
-          </Button>
-        )}
+      </div>
+    </div>
+  );
+}
+
+function CredencialHistorialEntry({ entry, index }: { entry: Panel['historialCredenciales'][0]; index: number }) {
+  const [showPw, setShowPw] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const copy = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(field);
+    toast.success('Copiado');
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  return (
+    <div className="text-[11px] text-muted-foreground space-y-0.5 py-1">
+      <div className="flex items-center gap-1">
+        <Badge variant="destructive" className="text-[9px] px-1.5 py-0">CAÍDO</Badge>
+        <span>
+          {format(new Date(entry.fechaInicio), 'dd/MM/yyyy', { locale: es })} — {format(new Date(entry.fechaFin), 'dd/MM/yyyy', { locale: es })}
+        </span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="font-mono text-foreground">{entry.email}</span>
+        <button onClick={() => copy(entry.email, `email-${index}`)} className="text-muted-foreground hover:text-foreground">
+          {copied === `email-${index}` ? <Check className="h-2.5 w-2.5 text-emerald-500" /> : <Copy className="h-2.5 w-2.5" />}
+        </button>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="font-mono text-foreground">{showPw ? entry.password : '••••••'}</span>
+        <button onClick={() => setShowPw(!showPw)} className="text-muted-foreground hover:text-foreground">
+          {showPw ? <EyeOff className="h-2.5 w-2.5" /> : <Eye className="h-2.5 w-2.5" />}
+        </button>
+        <button onClick={() => copy(entry.password, `pw-${index}`)} className="text-muted-foreground hover:text-foreground">
+          {copied === `pw-${index}` ? <Check className="h-2.5 w-2.5 text-emerald-500" /> : <Copy className="h-2.5 w-2.5" />}
+        </button>
       </div>
     </div>
   );

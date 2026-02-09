@@ -1,9 +1,11 @@
 export type EstadoPanel = 'activo' | 'caido';
 
-export interface PanelHistorial {
-  fecha: string;
-  evento: 'activado' | 'caido' | 'reemplazo_de' | 'reemplazado_por';
-  panelRelacionadoId?: string;
+export interface CredencialHistorial {
+  email: string;
+  password: string;
+  fechaInicio: string;
+  fechaFin: string;
+  motivo: string;
 }
 
 export interface Panel {
@@ -18,8 +20,8 @@ export interface Panel {
   servicioAsociado: string;
   estado: EstadoPanel;
   proveedor?: string;
-  reemplazadoPorId?: string;
-  historial: PanelHistorial[];
+  credencialFechaInicio: string;
+  historialCredenciales: CredencialHistorial[];
 }
 
 export interface Cliente {
