@@ -6,7 +6,7 @@ import {
   startOfDay, eachWeekOfInterval,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ClipboardCopy, FileText, ChevronLeft, ChevronRight, CalendarIcon, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { ClipboardCopy, FileText, ChevronLeft, ChevronRight, CalendarIcon, TrendingUp, TrendingDown, Minus, Send } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -599,11 +599,24 @@ export default function ReporteSemanalDialog() {
             </div>
           )}
 
-          {/* Copy button */}
-          <Button className="w-full gap-2" onClick={handleCopiar}>
-            <ClipboardCopy className="h-4 w-4" />
-            Copiar Reporte
-          </Button>
+          {/* Action buttons */}
+          <div className="flex gap-2">
+            <Button className="flex-1 gap-2" onClick={handleCopiar}>
+              <ClipboardCopy className="h-4 w-4" />
+              Copiar Reporte
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1 gap-2"
+              onClick={() => {
+                const text = buildReporteText();
+                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+              }}
+            >
+              <Send className="h-4 w-4" />
+              Enviar por WhatsApp
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
