@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Panel, CredencialHistorial } from '@/types';
 import { useData } from '@/contexts/DataContext';
 import { format } from 'date-fns';
-import { AlertTriangle, Eye, EyeOff, Copy, Check, History, Info } from 'lucide-react';
+import { AlertTriangle, Eye, EyeOff, Copy, Check, History, Info, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 
 const SERVICIOS_PREDETERMINADOS = ['ChatGPT', 'CapCut', 'Canva', 'Veo 3', 'Claude', 'Midjourney'];
@@ -205,9 +209,36 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
             </p>
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {historialLocal.map((entry, i) => (
-                <CredencialHistorialRow key={i} entry={entry} index={i} />
+                <CredencialHistorialRow
+                  key={i}
+                  entry={entry}
+                  index={i}
+                  onDelete={() => setHistorialLocal(prev => prev.filter((_, idx) => idx !== i))}
+                />
               ))}
             </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button type="button" variant="outline" size="sm" className="w-full gap-1.5 text-destructive hover:text-destructive">
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Limpiar todo el historial
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta acción no se puede deshacer. Se eliminarán todas las credenciales anteriores del historial.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => { setHistorialLocal([]); toast.success('Historial limpiado'); }}>
+                    Eliminar todo
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         )}
       </DialogContent>
@@ -215,7 +246,7 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
   );
 }
 
-function CredencialHistorialRow({ entry, index }: { entry: CredencialHistorial; index: number }) {
+function CredencialHistorialRow({ entry, index, onDelete }: { entry: CredencialHistorial; index: number; onDelete: () => void }) {
   const [showPw, setShowPw] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -230,9 +261,14 @@ function CredencialHistorialRow({ entry, index }: { entry: CredencialHistorial; 
     <div className="rounded-md border border-border bg-muted/30 p-2 text-xs space-y-1">
       <div className="flex items-center justify-between">
         <Badge variant="destructive" className="text-[9px] px-1.5 py-0">CAÍDO</Badge>
-        <span className="text-[10px] text-muted-foreground">
-          {format(new Date(entry.fechaInicio), 'dd/MM/yyyy')} — {format(new Date(entry.fechaFin), 'dd/MM/yyyy')}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-muted-foreground">
+            {format(new Date(entry.fechaInicio), 'dd/MM/yyyy')} — {format(new Date(entry.fechaFin), 'dd/MM/yyyy')}
+          </span>
+          <button type="button" onClick={onDelete} className="text-muted-foreground hover:text-destructive shrink-0" title="Eliminar">
+            <Trash2 className="h-3 w-3" />
+          </button>
+        </div>
       </div>
       <div className="flex items-center gap-1.5">
         <span className="text-muted-foreground">Email:</span>
