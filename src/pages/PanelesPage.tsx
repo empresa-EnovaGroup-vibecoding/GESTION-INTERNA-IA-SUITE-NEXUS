@@ -1,14 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Panel } from '@/types';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import PanelCard from '@/components/PanelCard';
 import PanelFormDialog from '@/components/PanelFormDialog';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
 
 const SERVICIOS_FILTER = ['Todos', 'ChatGPT', 'CapCut', 'Canva', 'Veo 3', 'Claude', 'Midjourney'];
 
@@ -17,14 +14,16 @@ export default function PanelesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Panel | null>(null);
   const [filterServicio, setFilterServicio] = useState('Todos');
-  const [deleteTarget, setDeleteTarget] = useState<Panel | null>(null);
+  const [search, setSearch] = useState('');
 
   const filtered = useMemo(() => {
+    const q = search.toLowerCase();
     return paneles.filter(p => {
       if (filterServicio !== 'Todos' && !p.servicioAsociado?.toLowerCase().includes(filterServicio.toLowerCase())) return false;
+      if (q && !p.nombre.toLowerCase().includes(q) && !p.email.toLowerCase().includes(q) && !(p.notas || '').toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [paneles, filterServicio]);
+  }, [paneles, filterServicio, search]);
 
   const handleEdit = (panel: Panel) => {
     setEditing(panel);
@@ -47,6 +46,15 @@ export default function PanelesPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[180px] max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar por nombre, email o notas..."
+            className="pl-8 h-8 text-xs"
+          />
+        </div>
         <div className="flex flex-wrap gap-1">
           {SERVICIOS_FILTER.map(s => (
             <button
