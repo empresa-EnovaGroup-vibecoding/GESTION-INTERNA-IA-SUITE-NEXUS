@@ -19,9 +19,9 @@ export const CONTENT_DEFAULTS: ContentColors = {
 };
 
 export const CONTENT_DEFAULTS_DARK: ContentColors = {
-  content_bg: '#0f172a',
-  content_card_bg: 'rgba(255,255,255,0.05)',
-  content_hover_bg: 'rgba(255,255,255,0.08)',
+  content_bg: '#19191a',
+  content_card_bg: '#1e1e20',
+  content_hover_bg: '#252527',
   content_text: '#e2e8f0',
   content_text_secondary: '#94a3b8',
   content_text_heading: '#f8fafc',
