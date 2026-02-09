@@ -100,4 +100,4 @@ export interface Corte {
   pagosIds: string[];
 }
 
-export type PageView = 'dashboard' | 'paneles' | 'clientes' | 'finanzas' | 'servicios';
+export type PageView = 'dashboard' | 'calendario' | 'paneles' | 'clientes' | 'finanzas' | 'servicios';
