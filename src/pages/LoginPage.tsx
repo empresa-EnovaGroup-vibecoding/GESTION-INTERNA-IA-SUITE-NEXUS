@@ -4,12 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Monitor } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const { signIn, signUp } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -36,9 +37,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-            <Monitor className="h-5 w-5 text-primary-foreground" />
-          </div>
+          <img src="/logo-ia-suite.png" alt="AI Subs logo" className="mx-auto mb-2 h-12 w-12 rounded-lg object-contain" />
           <CardTitle className="text-xl">AI Subs</CardTitle>
           <CardDescription>
             {isSignUp ? 'Crea una cuenta para acceder' : 'Inicia sesión para continuar'}
@@ -59,21 +58,32 @@ export default function LoginPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Contraseña</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                placeholder="••••••••"
-                minLength={6}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  minLength={6}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}
             {message && <p className="text-sm text-emerald-500">{message}</p>}
 
-            <Button type="submit" className="w-full" disabled={submitting}>
+            <Button type="submit" className="w-full bg-gradient-to-r from-[#0d9488] to-[#14b8a6] hover:from-[#14b8a6] hover:to-[#2dd4bf] text-white border-0 shadow-md" disabled={submitting}>
               {submitting ? 'Cargando...' : isSignUp ? 'Crear cuenta' : 'Iniciar sesión'}
             </Button>
           </form>
@@ -81,7 +91,7 @@ export default function LoginPage() {
           <div className="mt-4 text-center">
             <button
               type="button"
-              className="text-sm text-muted-foreground hover:text-foreground underline"
+              className="text-sm text-[#0d9488] hover:text-[#14b8a6] underline transition-colors"
               onClick={() => { setIsSignUp(!isSignUp); setError(''); setMessage(''); }}
             >
               {isSignUp ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
