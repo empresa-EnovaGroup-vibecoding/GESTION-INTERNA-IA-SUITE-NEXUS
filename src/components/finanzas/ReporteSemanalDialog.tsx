@@ -2,11 +2,16 @@ import { useState, useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
 import {
   format, startOfWeek, endOfWeek, isWithinInterval,
-  addDays, differenceInDays, startOfDay,
+  addDays, subWeeks, addWeeks, startOfDay,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ClipboardCopy, FileText, X } from 'lucide-react';
+import { ClipboardCopy, FileText, ChevronLeft, ChevronRight, CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
@@ -14,12 +19,13 @@ import { toast } from 'sonner';
 
 export default function ReporteSemanalDialog() {
   const [open, setOpen] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const { clientes, suscripciones, pagos, paneles, getServicioById } = useData();
 
+  const weekStart = startOfWeek(startOfDay(selectedDay), { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(startOfDay(selectedDay), { weekStartsOn: 1 });
+
   const reporte = useMemo(() => {
-    const hoy = startOfDay(new Date());
-    const weekStart = startOfWeek(hoy, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(hoy, { weekStartsOn: 1 });
     const nextWeekStart = addDays(weekEnd, 1);
     const nextWeekEnd = addDays(nextWeekStart, 6);
 
@@ -99,7 +105,6 @@ export default function ReporteSemanalDialog() {
     const gananciaNeta = Math.round((totalPagosUSD - totalGastosSemanal) * 100) / 100;
 
     return {
-      weekStart, weekEnd,
       nuevosClientes, renovaciones,
       pagosCount: pagosSemanales.length,
       totalUSD: Math.round(totalUSD * 100) / 100,
@@ -110,14 +115,14 @@ export default function ReporteSemanalDialog() {
       gananciaNeta,
       totalGastosSemanal: Math.round(totalGastosSemanal * 100) / 100,
     };
-  }, [clientes, suscripciones, pagos, paneles, getServicioById]);
+  }, [clientes, suscripciones, pagos, paneles, getServicioById, weekStart, weekEnd]);
 
   const buildReporteText = () => {
     const r = reporte;
     const lines: string[] = [];
 
     lines.push(`📊 *REPORTE SEMANAL*`);
-    lines.push(`📅 Semana del ${format(r.weekStart, 'dd MMM', { locale: es })} al ${format(r.weekEnd, 'dd MMM yyyy', { locale: es })}`);
+    lines.push(`📅 Semana del ${format(weekStart, 'dd MMM', { locale: es })} al ${format(weekEnd, 'dd MMM yyyy', { locale: es })}`);
     lines.push('');
 
     // Nuevos clientes
@@ -178,6 +183,11 @@ export default function ReporteSemanalDialog() {
   };
 
   const r = reporte;
+  const isCurrentWeek = format(weekStart, 'yyyy-MM-dd') === format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) setSelectedDay(date);
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -196,13 +206,55 @@ export default function ReporteSemanalDialog() {
         </DialogHeader>
 
         <div className="space-y-4 text-sm">
-          {/* Date range */}
-          <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-center">
-            <p className="text-xs text-muted-foreground">Semana del</p>
-            <p className="font-semibold">
-              {format(r.weekStart, 'dd MMM', { locale: es })} — {format(r.weekEnd, 'dd MMM yyyy', { locale: es })}
-            </p>
+          {/* Week selector */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost" size="icon" className="h-8 w-8"
+              onClick={() => setSelectedDay(d => subWeeks(d, 1))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    'flex-1 justify-center gap-2 text-sm font-semibold',
+                    isCurrentWeek && 'border-primary/50'
+                  )}
+                >
+                  <CalendarIcon className="h-4 w-4" />
+                  {format(weekStart, 'dd MMM', { locale: es })} — {format(weekEnd, 'dd MMM yyyy', { locale: es })}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="center">
+                <Calendar
+                  mode="single"
+                  selected={selectedDay}
+                  onSelect={handleDateSelect}
+                  initialFocus
+                  className={cn('p-3 pointer-events-auto')}
+                />
+              </PopoverContent>
+            </Popover>
+
+            <Button
+              variant="ghost" size="icon" className="h-8 w-8"
+              onClick={() => setSelectedDay(d => addWeeks(d, 1))}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
+
+          {!isCurrentWeek && (
+            <button
+              onClick={() => setSelectedDay(new Date())}
+              className="w-full text-center text-[11px] text-primary hover:underline"
+            >
+              Ir a semana actual
+            </button>
+          )}
 
           {/* Nuevos clientes */}
           <Section
