@@ -60,14 +60,6 @@ export interface Suscripcion {
   notas?: string;
 }
 
-export interface Transaccion {
-  id: string;
-  tipo: 'ingreso' | 'gasto';
-  concepto: string;
-  monto: number;
-  categoria: string;
-  fecha: string;
-}
 
 export type MetodoPago = 'Binance Pay' | 'Binance P2P' | 'Transferencia bancaria' | 'Zelle' | 'Nequi' | 'Mercado Pago' | 'PayPal' | 'Efectivo';
 

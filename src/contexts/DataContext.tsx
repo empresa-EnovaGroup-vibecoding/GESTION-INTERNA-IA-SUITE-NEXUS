@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Panel, Cliente, Servicio, Suscripcion, Transaccion, Pago, Corte, EstadoPanel, CredencialHistorial } from '@/types';
+import { Panel, Cliente, Servicio, Suscripcion, Pago, Corte, EstadoPanel, CredencialHistorial } from '@/types';
 import { addDays, format, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 import { supabaseExternal } from '@/lib/supabaseExternal';
 
@@ -8,7 +8,7 @@ interface DataContextType {
   clientes: Cliente[];
   servicios: Servicio[];
   suscripciones: Suscripcion[];
-  transacciones: Transaccion[];
+  
   pagos: Pago[];
   cortes: Corte[];
   loading: boolean;
@@ -32,9 +32,6 @@ interface DataContextType {
   updateSuscripcion: (suscripcion: Suscripcion) => void;
   deleteSuscripcion: (id: string) => void;
   getSuscripcionesByCliente: (clienteId: string) => Suscripcion[];
-  // Transacciones
-  addTransaccion: (transaccion: Omit<Transaccion, 'id'>) => void;
-  deleteTransaccion: (id: string) => void;
   // Pagos
   addPago: (pago: Omit<Pago, 'id'>) => void;
   updatePago: (pago: Pago) => void;
@@ -151,12 +148,8 @@ function rowToCorte(r: any): Corte {
   };
 }
 
-function transaccionToRow(t: Transaccion) {
-  return { id: t.id, tipo: t.tipo, concepto: t.concepto, monto: t.monto, categoria: t.categoria, fecha: t.fecha };
-}
-function rowToTransaccion(r: any): Transaccion {
-  return { id: r.id, tipo: r.tipo, concepto: r.concepto, monto: r.monto, categoria: r.categoria, fecha: r.fecha };
-}
+
+
 
 // === localStorage migration ===
 async function migrateLocalStorageToSupabase() {
@@ -167,7 +160,7 @@ async function migrateLocalStorageToSupabase() {
     { key: 'suscripciones', table: 'suscripciones', toRow: suscripcionToRow },
     { key: 'pagos', table: 'pagos', toRow: pagoToRow },
     { key: 'cortes', table: 'cortes', toRow: corteToRow },
-    { key: 'transacciones', table: 'transacciones', toRow: transaccionToRow },
+    
   ];
 
   for (const { key, table, toRow } of tables) {
@@ -200,7 +193,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [suscripciones, setSuscripciones] = useState<Suscripcion[]>([]);
-  const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
+  
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [cortes, setCortes] = useState<Corte[]>([]);
   const [loading, setLoading] = useState(true);
@@ -225,14 +218,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         supabaseExternal.from('cortes').select('*'),
       ]);
 
-      // transacciones table may not exist — handle gracefully
-      const tRes = await supabaseExternal.from('transacciones').select('*');
-
       setPaneles((pRes.data || []).map(rowToPanel));
       setClientes((cRes.data || []).map(rowToCliente));
       setServicios((sRes.data || []).map(rowToServicio));
       setSuscripciones((subRes.data || []).map(rowToSuscripcion));
-      setTransacciones((tRes.data || []).map(rowToTransaccion));
       setPagos((pgRes.data || []).map(rowToPago));
       setCortes((coRes.data || []).map(rowToCorte));
       setLoading(false);
@@ -429,18 +418,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [suscripciones]
   );
 
-  // --- Transacciones ---
-  const addTransaccion = useCallback(async (transaccion: Omit<Transaccion, 'id'>) => {
-    const newT: Transaccion = { ...transaccion, id: generateId() };
-    setTransacciones(prev => [...prev, newT]);
-    await supabaseExternal.from('transacciones').insert(transaccionToRow(newT));
-  }, []);
-
-  const deleteTransaccion = useCallback(async (id: string) => {
-    setTransacciones(prev => prev.filter(t => t.id !== id));
-    await supabaseExternal.from('transacciones').delete().eq('id', id);
-  }, []);
-
   // --- Pagos ---
   const addPago = useCallback(async (pago: Omit<Pago, 'id'>) => {
     const newPago: Pago = { ...pago, id: generateId() };
@@ -528,12 +505,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      paneles, clientes, servicios, suscripciones, transacciones, pagos, cortes, loading,
+      paneles, clientes, servicios, suscripciones, pagos, cortes, loading,
       addPanel, updatePanel, deletePanel, rotarCredenciales,
       addCliente, addClienteConSuscripciones, updateCliente, deleteCliente,
       addServicio, updateServicio, deleteServicio, getServicioById,
       addSuscripcion, updateSuscripcion, deleteSuscripcion, getSuscripcionesByCliente,
-      addTransaccion, deleteTransaccion,
       addPago, updatePago, deletePago,
       addCorte, deleteCorte,
       getPanelById, getCuposDisponibles,
