@@ -54,7 +54,7 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
   }, [loading, config]);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-[100dvh] overflow-hidden">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -176,7 +176,7 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
         style={{
           backgroundColor: isCustom ? 'var(--content-bg)' : undefined,
           color: isCustom ? 'var(--content-text)' : undefined,
-          minHeight: '100vh',
+          
         }}
       >
         <header
