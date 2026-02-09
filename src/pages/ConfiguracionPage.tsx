@@ -135,8 +135,8 @@ export default function ConfiguracionPage() {
 
   const PRESETS: Record<string, { label: string; colors: SidebarColors }> = {
     oscuro: { label: 'Oscuro Clásico', colors: { ...SIDEBAR_DEFAULTS } },
-    azul: { label: 'Azul Profundo', colors: { sidebar_bg: '#0f1729', sidebar_text: '#7da2c9', sidebar_active_bg: '#1a2744', sidebar_active_text: '#ffffff', sidebar_hover_bg: '#142035', sidebar_icon_color: '#4a7aab', sidebar_icon_active: '#38bdf8', sidebar_border: '#1e2d4a', sidebar_logo_bg: '#0c1220' } },
-    verde: { label: 'Verde Bosque', colors: { sidebar_bg: '#0f1f17', sidebar_text: '#7aad8e', sidebar_active_bg: '#1a3327', sidebar_active_text: '#ffffff', sidebar_hover_bg: '#14291e', sidebar_icon_color: '#4d8b63', sidebar_icon_active: '#34d399', sidebar_border: '#1e3a2b', sidebar_logo_bg: '#0b1a12' } },
+    azul: { label: 'Azul Profundo', colors: { sidebar_bg: '#191a1f', sidebar_text: '#7da2c9', sidebar_active_bg: '#1e2530', sidebar_active_text: '#ffffff', sidebar_hover_bg: '#1c1f26', sidebar_icon_color: '#4a7aab', sidebar_icon_active: '#38bdf8', sidebar_border: '#252830', sidebar_logo_bg: '#1a1b20' } },
+    verde: { label: 'Verde Bosque', colors: { sidebar_bg: '#191a19', sidebar_text: '#7aad8e', sidebar_active_bg: '#1e2a22', sidebar_active_text: '#ffffff', sidebar_hover_bg: '#1c211d', sidebar_icon_color: '#4d8b63', sidebar_icon_active: '#34d399', sidebar_border: '#252b27', sidebar_logo_bg: '#1a1b1a' } },
     morado: { label: 'Morado Elegante', colors: { sidebar_bg: '#1a1427', sidebar_text: '#a78bbd', sidebar_active_bg: '#2d1f42', sidebar_active_text: '#ffffff', sidebar_hover_bg: '#221a35', sidebar_icon_color: '#7c5fa0', sidebar_icon_active: '#a78bfa', sidebar_border: '#2d1f42', sidebar_logo_bg: '#15101f' } },
     claro: { label: 'Claro', colors: { sidebar_bg: '#f8fafc', sidebar_text: '#64748b', sidebar_active_bg: '#e2e8f0', sidebar_active_text: '#0f172a', sidebar_hover_bg: '#f1f5f9', sidebar_icon_color: '#94a3b8', sidebar_icon_active: '#6366f1', sidebar_border: '#e2e8f0', sidebar_logo_bg: '#ffffff' } },
   };
