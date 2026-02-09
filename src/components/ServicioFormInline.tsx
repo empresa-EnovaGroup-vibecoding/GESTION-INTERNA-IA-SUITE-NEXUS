@@ -177,7 +177,7 @@ export default function ServicioFormInline({ items, onAdd, onRemove }: Props) {
               <Input
                 type="number"
                 min={0}
-                step={100}
+                step={0.01}
                 className="h-8 text-xs"
                 value={form.precioCobrado}
                 onChange={(e) => setForm(f => ({ ...f, precioCobrado: parseFloat(e.target.value) || 0 }))}
