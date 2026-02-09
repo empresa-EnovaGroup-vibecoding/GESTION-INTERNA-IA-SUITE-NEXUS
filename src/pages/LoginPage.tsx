@@ -83,7 +83,7 @@ export default function LoginPage() {
             {error && <p className="text-sm text-destructive">{error}</p>}
             {message && <p className="text-sm text-emerald-500">{message}</p>}
 
-            <Button type="submit" className="w-full bg-gradient-to-r from-[#0d9488] to-[#14b8a6] hover:from-[#14b8a6] hover:to-[#2dd4bf] text-white border-0 shadow-md" disabled={submitting}>
+            <Button type="submit" className="w-full shadow-md" disabled={submitting}>
               {submitting ? 'Cargando...' : isSignUp ? 'Crear cuenta' : 'Iniciar sesión'}
             </Button>
           </form>
@@ -91,7 +91,7 @@ export default function LoginPage() {
           <div className="mt-4 text-center">
             <button
               type="button"
-              className="text-sm text-[#0d9488] hover:text-[#14b8a6] underline transition-colors"
+              className="text-sm text-primary hover:text-primary/80 underline transition-colors"
               onClick={() => { setIsSignUp(!isSignUp); setError(''); setMessage(''); }}
             >
               {isSignUp ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
