@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nexus-v1';
+const CACHE_NAME = 'nexus-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -26,20 +26,34 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const request = event.request;
 
-  // NO interceptar llamadas API - dejarlas pasar al network
+  // No interceptar llamadas API
   if (request.method !== 'GET' || request.url.includes('/rest/') || request.url.includes('/auth/') || request.url.includes('/functions/')) {
     event.respondWith(fetch(request));
     return;
   }
 
-  // Solo cachear assets estáticos
+  // Network-first para navegación (HTML) - siempre cargar lo más reciente
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then(response => {
+          const clone = response.clone();
+          caches.open('nexus-v2').then(cache => cache.put(request, clone));
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Cache-first solo para assets estáticos (imágenes, fonts, JS, CSS)
   event.respondWith(
-    caches.match(request).then((cached) => {
-      return cached || fetch(request).then((response) => {
+    caches.match(request).then(cached =>
+      cached || fetch(request).then(response => {
         const clone = response.clone();
-        caches.open('nexus-v1').then((cache) => cache.put(request, clone));
+        caches.open('nexus-v2').then(cache => cache.put(request, clone));
         return response;
-      });
-    })
+      })
+    )
   );
 });
