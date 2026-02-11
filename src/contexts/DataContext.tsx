@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Panel, Cliente, Servicio, Suscripcion, Pago, Corte, EstadoPanel, CredencialHistorial } from '@/types';
+import { Panel, Cliente, Servicio, Suscripcion, Pago, Corte, Proyecto, EstadoPanel, CredencialHistorial } from '@/types';
 import { addDays, format, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 import { supabaseExternal } from '@/lib/supabaseExternal';
 import { PanelSchema, ClienteSchema, ServicioSchema, SuscripcionSchema, PagoSchema, CorteSchema, validateInput } from '@/lib/validationSchemas';
@@ -12,6 +12,7 @@ interface DataContextType {
   
   pagos: Pago[];
   cortes: Corte[];
+  proyectos: Proyecto[];
   loading: boolean;
   // Paneles
   addPanel: (panel: Omit<Panel, 'id' | 'cuposUsados' | 'historialCredenciales'>) => void;
@@ -40,6 +41,10 @@ interface DataContextType {
   // Cortes
   addCorte: (corte: Omit<Corte, 'id' | 'pagosIds'>) => void;
   deleteCorte: (id: string) => void;
+  // Proyectos
+  addProyecto: (proyecto: Omit<Proyecto, 'id'>) => void;
+  deleteProyecto: (id: string) => void;
+  getProyectoById: (id: string) => Proyecto | undefined;
   // Helpers
   getPanelById: (id: string) => Panel | undefined;
   getCuposDisponibles: (panelId: string) => number;
@@ -124,6 +129,7 @@ function pagoToRow(p: Pago) {
     referencia: p.referencia ?? null,
     comprobante_url: p.comprobanteUrl ?? null,
     datos_extraidos: p.datosExtraidos ?? null,
+    proyecto_id: p.proyectoId ?? null,
   };
 }
 function rowToPago(r: any): Pago {
@@ -135,7 +141,15 @@ function rowToPago(r: any): Pago {
     referencia: r.referencia ?? undefined,
     comprobanteUrl: r.comprobante_url ?? undefined,
     datosExtraidos: r.datos_extraidos ?? undefined,
+    proyectoId: r.proyecto_id ?? undefined,
   };
+}
+
+function proyectoToRow(p: Proyecto) {
+  return { id: p.id, nombre: p.nombre };
+}
+function rowToProyecto(r: any): Proyecto {
+  return { id: r.id, nombre: r.nombre };
 }
 
 function corteToRow(c: Corte) {
@@ -205,6 +219,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [cortes, setCortes] = useState<Corte[]>([]);
+  const [proyectos, setProyectos] = useState<Proyecto[]>([]);
   const [loading, setLoading] = useState(true);
   const initialized = useRef(false);
 
@@ -218,13 +233,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       await migrateLocalStorageToSupabase();
 
       // Then fetch everything from Supabase
-      const [pRes, cRes, sRes, subRes, pgRes, coRes] = await Promise.all([
+      const [pRes, cRes, sRes, subRes, pgRes, coRes, prRes] = await Promise.all([
         supabaseExternal.from('paneles').select('*'),
         supabaseExternal.from('clientes').select('*'),
         supabaseExternal.from('servicios').select('*'),
         supabaseExternal.from('suscripciones').select('*'),
         supabaseExternal.from('pagos').select('*'),
         supabaseExternal.from('cortes').select('*'),
+        supabaseExternal.from('proyectos').select('*'),
       ]);
 
       setPaneles((pRes.data || []).map(rowToPanel));
@@ -233,6 +249,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setSuscripciones((subRes.data || []).map(rowToSuscripcion));
       setPagos((pgRes.data || []).map(rowToPago));
       setCortes((coRes.data || []).map(rowToCorte));
+      setProyectos((prRes.data || []).map(rowToProyecto));
       setLoading(false);
     }
 
@@ -510,6 +527,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await supabaseExternal.from('cortes').delete().eq('id', id);
   }, []);
 
+  // --- Proyectos ---
+  const addProyecto = useCallback(async (proyecto: Omit<Proyecto, 'id'>) => {
+    const newProyecto: Proyecto = { ...proyecto, id: generateId() };
+    setProyectos(prev => [...prev, newProyecto]);
+    await supabaseExternal.from('proyectos').insert(proyectoToRow(newProyecto));
+  }, []);
+
+  const deleteProyecto = useCallback(async (id: string) => {
+    setProyectos(prev => prev.filter(p => p.id !== id));
+    setPagos(prev => prev.map(p => p.proyectoId === id ? { ...p, proyectoId: undefined } : p));
+    await Promise.all([
+      supabaseExternal.from('proyectos').delete().eq('id', id),
+      supabaseExternal.from('pagos').update({ proyecto_id: null }).eq('proyecto_id', id),
+    ]);
+  }, []);
+
+  const getProyectoById = useCallback((id: string) => proyectos.find(p => p.id === id), [proyectos]);
+
   // --- Helpers ---
   const getPanelById = useCallback((id: string) => paneles.find(p => p.id === id), [paneles]);
 
@@ -520,13 +555,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      paneles, clientes, servicios, suscripciones, pagos, cortes, loading,
+      paneles, clientes, servicios, suscripciones, pagos, cortes, proyectos, loading,
       addPanel, updatePanel, deletePanel, rotarCredenciales,
       addCliente, addClienteConSuscripciones, updateCliente, deleteCliente,
       addServicio, updateServicio, deleteServicio, getServicioById,
       addSuscripcion, updateSuscripcion, deleteSuscripcion, getSuscripcionesByCliente,
       addPago, updatePago, deletePago,
       addCorte, deleteCorte,
+      addProyecto, deleteProyecto, getProyectoById,
       getPanelById, getCuposDisponibles,
     }}>
       {children}

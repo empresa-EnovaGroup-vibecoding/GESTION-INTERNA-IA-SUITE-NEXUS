@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Palette, Users, Database, Upload, Plus, Trash2, Save, RotateCcw } from 'lucide-react';
+import { Building2, Palette, Users, Database, Upload, Plus, Trash2, Save, RotateCcw, FolderKanban } from 'lucide-react';
 import { useConfiguracion, SIDEBAR_DEFAULTS } from '@/hooks/useConfiguracion';
+import { useData } from '@/contexts/DataContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import SidebarColorPicker, { type SidebarColors } from '@/components/SidebarColorPicker';
@@ -23,6 +24,7 @@ interface TeamMember {
 
 export default function ConfiguracionPage() {
   const { config, loading, updateConfig, refetch } = useConfiguracion();
+  const { proyectos, addProyecto, deleteProyecto } = useData();
   const { colors: contentColors, updateColor: updateContentColor, resetColors: resetContentColors } = useContentTheme();
 
   // Empresa
@@ -41,6 +43,9 @@ export default function ConfiguracionPage() {
   // Equipo
   const [equipo, setEquipo] = useState<TeamMember[]>([]);
   const [newMember, setNewMember] = useState<TeamMember>({ nombre: '', rol: '', whatsapp: '' });
+
+  // Proyectos
+  const [newProyectoNombre, setNewProyectoNombre] = useState('');
 
   // Datos
   const [comisionPorcentaje, setComisionPorcentaje] = useState('5');
@@ -337,7 +342,58 @@ export default function ConfiguracionPage() {
         </CardContent>
       </Card>
 
-      {/* 4. Datos */}
+      {/* 4. Proyectos */}
+      <Card>
+        <CardHeader className="flex-row items-center gap-3 space-y-0">
+          <FolderKanban className="h-5 w-5 text-primary" />
+          <CardTitle className="text-base">Proyectos / Negocios</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Crea proyectos para etiquetar pagos y ver finanzas separadas por negocio.
+          </p>
+          {proyectos.length > 0 && (
+            <div className="space-y-2">
+              {proyectos.map(p => (
+                <div key={p.id} className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
+                  <p className="text-sm font-medium">{p.nombre}</p>
+                  <Button variant="ghost" size="icon" onClick={() => { deleteProyecto(p.id); toast.success('Proyecto eliminado'); }}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Input
+              placeholder="Nombre del proyecto (ej: Nexus, Exito...)"
+              value={newProyectoNombre}
+              onChange={e => setNewProyectoNombre(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && newProyectoNombre.trim()) {
+                  addProyecto({ nombre: newProyectoNombre.trim() });
+                  setNewProyectoNombre('');
+                  toast.success('Proyecto creado');
+                }
+              }}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!newProyectoNombre.trim()}
+              onClick={() => {
+                addProyecto({ nombre: newProyectoNombre.trim() });
+                setNewProyectoNombre('');
+                toast.success('Proyecto creado');
+              }}
+            >
+              <Plus className="h-4 w-4 mr-1" /> Crear
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 5. Datos */}
       <Card>
         <CardHeader className="flex-row items-center gap-3 space-y-0">
           <Database className="h-5 w-5 text-primary" />

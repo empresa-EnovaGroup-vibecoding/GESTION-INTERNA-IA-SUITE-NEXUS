@@ -14,19 +14,25 @@ import { Input } from '@/components/ui/input';
 
 interface Props {
   selectedDate: Date;
+  selectedProyecto?: string | null;
 }
 
-export default function PagosRecientes({ selectedDate }: Props) {
-  const { pagos, clientes, deletePago } = useData();
+export default function PagosRecientes({ selectedDate, selectedProyecto }: Props) {
+  const { pagos, clientes, proyectos, deletePago } = useData();
   const [comprobanteUrl, setComprobanteUrl] = useState<string | null>(null);
   const [searchPago, setSearchPago] = useState('');
 
   const getClienteNombre = (id: string) => clientes.find(c => c.id === id)?.nombre || 'Desconocido';
+  const getProyectoNombre = (id: string | undefined) => id ? proyectos.find(p => p.id === id)?.nombre : undefined;
 
   const pagosMes = useMemo(() => {
-    const todos = pagos
+    let todos = pagos
       .filter(p => isSameMonth(new Date(p.fecha), selectedDate))
       .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+
+    if (selectedProyecto) {
+      todos = todos.filter(p => p.proyectoId === selectedProyecto);
+    }
 
     if (!searchPago) return todos;
 
@@ -37,7 +43,7 @@ export default function PagosRecientes({ selectedDate }: Props) {
       const ref = (p.referencia || '').toLowerCase();
       return nombre.includes(q) || metodo.includes(q) || ref.includes(q);
     });
-  }, [pagos, selectedDate, searchPago, clientes]);
+  }, [pagos, selectedDate, searchPago, clientes, selectedProyecto]);
 
   const totalMes = pagos.filter(p => isSameMonth(new Date(p.fecha), selectedDate)).length;
 
@@ -73,6 +79,7 @@ export default function PagosRecientes({ selectedDate }: Props) {
               <TableHead className="table-header">Cliente</TableHead>
               <TableHead className="table-header text-right">Monto</TableHead>
               <TableHead className="table-header">Metodo</TableHead>
+              <TableHead className="table-header">Proyecto</TableHead>
               <TableHead className="table-header">Ref</TableHead>
               <TableHead className="table-header text-right">Accion</TableHead>
             </TableRow>
@@ -97,6 +104,13 @@ export default function PagosRecientes({ selectedDate }: Props) {
                 </TableCell>
                 <TableCell>
                   <Badge variant="secondary" className="text-[10px]">{p.metodo}</Badge>
+                </TableCell>
+                <TableCell>
+                  {getProyectoNombre(p.proyectoId) ? (
+                    <Badge variant="outline" className="text-[10px]">{getProyectoNombre(p.proyectoId)}</Badge>
+                  ) : (
+                    <span className="text-xs text-muted-foreground/40">-</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   {p.referencia ? (

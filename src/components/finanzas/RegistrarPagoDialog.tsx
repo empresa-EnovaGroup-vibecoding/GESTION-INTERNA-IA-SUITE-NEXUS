@@ -64,7 +64,7 @@ interface ExtractedData {
 }
 
 export default function RegistrarPagoDialog() {
-  const { clientes, addPago } = useData();
+  const { clientes, proyectos, addPago } = useData();
   const [open, setOpen] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -81,6 +81,7 @@ export default function RegistrarPagoDialog() {
     moneda: 'USD' as MonedaPago,
     tasaCambio: '',
     referencia: '',
+    proyectoId: '',
   });
 
   useEffect(() => {
@@ -205,6 +206,7 @@ export default function RegistrarPagoDialog() {
         referencia: form.referencia || undefined,
         comprobanteUrl,
         datosExtraidos: aiData ? (aiData as unknown as Record<string, unknown>) : undefined,
+        proyectoId: form.proyectoId || undefined,
       });
     } catch (err) {
       console.error('Error registrando pago:', err);
@@ -216,11 +218,12 @@ export default function RegistrarPagoDialog() {
     setPagosRegistrados(count);
     toast.success('Pago #' + count + ' registrado: $' + montoUSD.toFixed(2) + ' USD');
 
-    // Keep clienteId, moneda, metodo, tasaCambio for fast re-entry
+    // Keep clienteId, moneda, metodo, tasaCambio, proyectoId for fast re-entry
     const keepClienteId = form.clienteId;
     const keepMoneda = form.moneda;
     const keepMetodo = form.metodo;
     const keepTasa = form.tasaCambio;
+    const keepProyectoId = form.proyectoId;
     clearImage();
     setForm({
       clienteId: keepClienteId,
@@ -230,13 +233,14 @@ export default function RegistrarPagoDialog() {
       moneda: keepMoneda,
       tasaCambio: keepTasa,
       referencia: '',
+      proyectoId: keepProyectoId,
     });
   };
 
   const resetForm = () => {
     setForm({
       clienteId: '', monto: '', metodo: '' as MetodoPago | '', moneda: 'USD', tasaCambio: '',
-      fecha: format(new Date(), 'yyyy-MM-dd'), referencia: '',
+      fecha: format(new Date(), 'yyyy-MM-dd'), referencia: '', proyectoId: '',
     });
     clearImage();
     setPagosRegistrados(0);
@@ -347,6 +351,21 @@ export default function RegistrarPagoDialog() {
               </p>
             )}
           </div>
+
+          {/* Proyecto */}
+          {proyectos.length > 0 && (
+            <div className="space-y-2">
+              <Label>Proyecto (opcional)</Label>
+              <Select value={form.proyectoId} onValueChange={v => setForm(f => ({ ...f, proyectoId: v }))}>
+                <SelectTrigger><SelectValue placeholder="Sin proyecto" /></SelectTrigger>
+                <SelectContent>
+                  {proyectos.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Moneda + Monto */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

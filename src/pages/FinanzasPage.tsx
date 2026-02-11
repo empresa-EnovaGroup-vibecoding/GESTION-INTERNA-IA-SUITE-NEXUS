@@ -6,6 +6,7 @@ import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, MessageCircle, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Cliente } from '@/types';
 import { getWhatsAppCobroUrl } from '@/lib/whatsapp';
 import { toast } from 'sonner';
@@ -33,10 +34,11 @@ interface ClienteDeudor {
 }
 
 export default function FinanzasPage() {
-  const { paneles, suscripciones, pagos, clientes, cortes, getServicioById } = useData();
+  const { paneles, suscripciones, pagos, clientes, cortes, proyectos, getServicioById } = useData();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDeudores, setShowDeudores] = useState(false);
   const [cobroIndex, setCobroIndex] = useState(-1);
+  const [selectedProyecto, setSelectedProyecto] = useState<string | null>(null);
 
   const mesLabel = format(selectedDate, 'MMMM yyyy', { locale: es });
 
@@ -50,18 +52,24 @@ export default function FinanzasPage() {
     [panelesActivos]
   );
 
+  // Pagos filtrados por proyecto
+  const pagosFiltrados = useMemo(() => {
+    if (!selectedProyecto) return pagos;
+    return pagos.filter(p => p.proyectoId === selectedProyecto);
+  }, [pagos, selectedProyecto]);
+
   // INGRESOS REALES
   const totalIngresos = useMemo(() => {
     const cortesDelMes = cortes.filter(c => isSameMonth(new Date(c.fecha), selectedDate));
-    const usdtFromCortes = cortesDelMes.reduce((sum, c) => sum + c.usdtRecibidoReal, 0);
-    const pagosDirectosUSD = pagos.filter(p =>
+    const usdtFromCortes = selectedProyecto ? 0 : cortesDelMes.reduce((sum, c) => sum + c.usdtRecibidoReal, 0);
+    const pagosDirectosUSD = pagosFiltrados.filter(p =>
       isSameMonth(new Date(p.fecha), selectedDate) &&
       (!p.moneda || p.moneda === 'USD') &&
       !p.corteId
     );
     const usdDirectos = pagosDirectosUSD.reduce((sum, p) => sum + p.monto, 0);
     return Math.round((usdtFromCortes + usdDirectos) * 100) / 100;
-  }, [cortes, pagos, selectedDate]);
+  }, [cortes, pagosFiltrados, selectedDate, selectedProyecto]);
 
   const ganancia = totalIngresos - totalGastos;
 
@@ -76,7 +84,7 @@ export default function FinanzasPage() {
       if (!cliente) return;
       const subsCliente = suscripciones.filter(s => s.clienteId === clienteId && s.estado === 'activa');
       const totalCobrar = subsCliente.reduce((sum, s) => sum + s.precioCobrado, 0);
-      const pagosMes = pagos.filter(
+      const pagosMes = pagosFiltrados.filter(
         p => p.clienteId === clienteId && isSameMonth(new Date(p.fecha), selectedDate)
       );
       const totalPagado = pagosMes.reduce((sum, p) => sum + p.monto, 0);
@@ -95,11 +103,11 @@ export default function FinanzasPage() {
       }
     });
     return result.sort((a, b) => b.saldo - a.saldo);
-  }, [suscripciones, pagos, clientes, selectedDate, getServicioById]);
+  }, [suscripciones, pagosFiltrados, clientes, selectedDate, getServicioById]);
 
   // Pendiente de convertir
   const pendienteConvertir = useMemo(() => {
-    const pagosPendientes = pagos.filter(p =>
+    const pagosPendientes = pagosFiltrados.filter(p =>
       isSameMonth(new Date(p.fecha), selectedDate) &&
       p.moneda && p.moneda !== 'USD' &&
       !p.corteId
@@ -117,7 +125,7 @@ export default function FinanzasPage() {
       count: pagosPendientes.length,
       label: parts.length > 0 ? parts.join(' + ') : 'Sin pendientes',
     };
-  }, [pagos, selectedDate]);
+  }, [pagosFiltrados, selectedDate]);
 
   // Cobrar siguiente
   const handleCobrarSiguiente = () => {
@@ -158,6 +166,19 @@ export default function FinanzasPage() {
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
+          {proyectos.length > 0 && (
+            <Select value={selectedProyecto || 'all'} onValueChange={v => setSelectedProyecto(v === 'all' ? null : v)}>
+              <SelectTrigger className="w-[150px] h-9 text-xs">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los proyectos</SelectItem>
+                {proyectos.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <ReporteSemanalDialog />
           <NuevoCorteDialog />
           <RegistrarPagoDialog />
@@ -255,7 +276,7 @@ export default function FinanzasPage() {
 
         {/* Tab 2: Pagos */}
         <TabsContent value="pagos" className="space-y-6 mt-4">
-          <PagosRecientes selectedDate={selectedDate} />
+          <PagosRecientes selectedDate={selectedDate} selectedProyecto={selectedProyecto} />
         </TabsContent>
 
         {/* Tab 3: Ingresos y Gastos */}

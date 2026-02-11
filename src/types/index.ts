@@ -80,6 +80,12 @@ export interface Pago {
   referencia?: string; // transaction reference number
   comprobanteUrl?: string; // link to receipt image in Supabase Storage
   datosExtraidos?: Record<string, unknown>; // AI-extracted data from receipt
+  proyectoId?: string; // which business project this payment belongs to
+}
+
+export interface Proyecto {
+  id: string;
+  nombre: string;
 }
 
 export interface Corte {
