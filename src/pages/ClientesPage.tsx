@@ -196,7 +196,15 @@ export default function ClientesPage() {
 
                 return (
                   <tr key={cliente.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3 font-medium">{cliente.nombre}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => openEdit(cliente)}
+                        className="font-medium hover:text-primary hover:underline text-left cursor-pointer"
+                        title="Ver datos del cliente"
+                      >
+                        {cliente.nombre}
+                      </button>
+                    </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{cliente.pais || '—'}</td>
                     <td className="px-4 py-3">
                       <a
