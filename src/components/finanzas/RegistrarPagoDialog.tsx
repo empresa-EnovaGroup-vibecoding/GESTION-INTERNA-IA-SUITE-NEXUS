@@ -111,29 +111,19 @@ export default function RegistrarPagoDialog() {
     setAnalyzing(true);
     try {
       const base64 = await fileToBase64(file);
-      const { supabase } = await import('@/integrations/supabase/client');
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/extract-receipt`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token,
-          },
-          body: JSON.stringify({
-            imageBase64: base64,
-            mimeType: file.type || 'image/jpeg',
-          }),
-        }
+      const { data: result, error: fnError } = await supabaseExternal.functions.invoke(
+        'extract-receipt',
+        { body: { imageBase64: base64, mimeType: file.type || 'image/jpeg' } }
       );
 
-      const result = await response.json();
+      if (fnError) {
+        console.error('Edge Function error:', fnError);
+        toast.error('No se pudo analizar el comprobante');
+        setAnalyzing(false);
+        return;
+      }
 
-      if (result.success && result.data) {
+      if (result?.success && result?.data) {
         const d = result.data as ExtractedData;
         setAiData(d);
 
@@ -203,18 +193,24 @@ export default function RegistrarPagoDialog() {
       }
     }
 
-    addPago({
-      clienteId: form.clienteId,
-      monto: montoUSD,
-      montoOriginal: needsRate ? montoOriginal : undefined,
-      moneda: needsRate ? form.moneda : undefined,
-      tasaCambio: needsRate ? tasaCambio : undefined,
-      metodo: form.metodo as MetodoPago,
-      fecha: form.fecha,
-      referencia: form.referencia || undefined,
-      comprobanteUrl,
-      datosExtraidos: aiData ? (aiData as unknown as Record<string, unknown>) : undefined,
-    });
+    try {
+      addPago({
+        clienteId: form.clienteId,
+        monto: montoUSD,
+        montoOriginal: needsRate ? montoOriginal : undefined,
+        moneda: needsRate ? form.moneda : undefined,
+        tasaCambio: needsRate ? tasaCambio : undefined,
+        metodo: form.metodo as MetodoPago,
+        fecha: form.fecha,
+        referencia: form.referencia || undefined,
+        comprobanteUrl,
+        datosExtraidos: aiData ? (aiData as unknown as Record<string, unknown>) : undefined,
+      });
+    } catch (err) {
+      console.error('Error registrando pago:', err);
+      toast.error('Error al registrar el pago');
+      return;
+    }
 
     const count = pagosRegistrados + 1;
     setPagosRegistrados(count);
