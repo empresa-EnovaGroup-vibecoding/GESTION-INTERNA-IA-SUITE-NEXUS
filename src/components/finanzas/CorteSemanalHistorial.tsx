@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
-import { format, isSameMonth } from 'date-fns';
+import { format, isSameMonth, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Trash2, ChevronDown, ChevronUp, Copy, Scissors } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -78,9 +78,14 @@ export default function CorteSemanalHistorial({ selectedDate }: Props) {
               onClick={() => setExpandedId(isExpanded ? null : c.id)}
             >
               <div className="flex items-center gap-4">
-                <span className="text-xs font-medium text-muted-foreground">
-                  {format(new Date(c.fechaInicio), 'd MMM', { locale: es })} - {format(new Date(c.fechaFin), 'd MMM', { locale: es })}
-                </span>
+                <div className="flex flex-col">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {format(new Date(c.fechaInicio), 'd MMM', { locale: es })} - {format(new Date(c.fechaFin), 'd MMM', { locale: es })}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground/70">
+                    {differenceInDays(new Date(c.fechaFin), new Date(c.fechaInicio)) + 1} dias
+                  </span>
+                </div>
                 <span className="text-sm font-semibold">${c.totalIngresos.toFixed(2)}</span>
               </div>
               <div className="flex items-center gap-3">

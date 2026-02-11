@@ -1,12 +1,17 @@
 import { useState, useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
 import {
-  format, addDays, subDays, startOfDay, isWithinInterval, isFriday,
-  nextFriday, previousFriday, isAfter, isBefore, isSameDay,
+  format, startOfDay, endOfDay, isWithinInterval, differenceInDays,
+  subDays, startOfWeek, endOfWeek, isSameDay,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Scissors, ChevronLeft, ChevronRight, Copy, Save } from 'lucide-react';
+import { Scissors, CalendarIcon, Copy, Save } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
@@ -20,41 +25,58 @@ export default function CorteSemanalDialog() {
   const [notas, setNotas] = useState('');
   const { pagos, proyectos, paneles, addCorteSemanal } = useData();
 
-  // Calculate current week's Friday
-  const getCurrentWeekFriday = (): Date => {
-    const today = startOfDay(new Date());
+  // Default: last 7 days (today back to 6 days ago)
+  const today = startOfDay(new Date());
+  const [fechaInicio, setFechaInicio] = useState<Date>(subDays(today, 6));
+  const [fechaFin, setFechaFin] = useState<Date>(today);
 
-    if (isFriday(today)) {
-      return today;
-    } else if (isAfter(today, nextFriday(today))) {
-      // If today is after this week's Friday, use this week's Friday
-      return previousFriday(addDays(today, 1));
-    } else {
-      // If today is before Friday, go back to last Friday
-      return previousFriday(today);
-    }
-  };
+  const rangeStart = startOfDay(fechaInicio);
+  const rangeEnd = endOfDay(fechaFin);
+  const numDays = differenceInDays(fechaFin, fechaInicio) + 1;
 
-  const [weekStartFriday, setWeekStartFriday] = useState<Date>(getCurrentWeekFriday());
+  const rangeLabel = isSameDay(fechaInicio, fechaFin)
+    ? format(fechaInicio, 'd MMM yyyy', { locale: es })
+    : `${format(fechaInicio, 'd MMM', { locale: es })} - ${format(fechaFin, 'd MMM yyyy', { locale: es })}`;
 
-  // Week range: Friday to Thursday
-  const weekStart = startOfDay(weekStartFriday);
-  const weekEnd = addDays(weekStart, 6); // Thursday
+  // Quick presets
+  const presets = [
+    {
+      label: 'Ultimos 7 dias',
+      apply: () => { setFechaInicio(subDays(today, 6)); setFechaFin(today); },
+      active: isSameDay(fechaInicio, subDays(today, 6)) && isSameDay(fechaFin, today),
+    },
+    {
+      label: 'Esta semana',
+      apply: () => {
+        setFechaInicio(startOfWeek(today, { weekStartsOn: 1 }));
+        setFechaFin(today);
+      },
+      active: isSameDay(fechaInicio, startOfWeek(today, { weekStartsOn: 1 })) && isSameDay(fechaFin, today),
+    },
+    {
+      label: 'Semana pasada',
+      apply: () => {
+        const prevWeekStart = startOfWeek(subDays(today, 7), { weekStartsOn: 1 });
+        const prevWeekEnd = endOfWeek(subDays(today, 7), { weekStartsOn: 1 });
+        setFechaInicio(prevWeekStart);
+        setFechaFin(prevWeekEnd);
+      },
+      active: isSameDay(fechaInicio, startOfWeek(subDays(today, 7), { weekStartsOn: 1 }))
+        && isSameDay(fechaFin, endOfWeek(subDays(today, 7), { weekStartsOn: 1 })),
+    },
+  ];
 
-  const weekLabel = `${format(weekStart, 'd MMM', { locale: es })} - ${format(weekEnd, 'd MMM yyyy', { locale: es })}`;
-
-  // Calculate weekly data
-  const weeklyData = useMemo(() => {
-    // Filter payments in the week range
-    const weekPayments = pagos.filter(p =>
-      isWithinInterval(new Date(p.fecha), { start: weekStart, end: weekEnd })
+  // Calculate data for the selected range
+  const corteData = useMemo(() => {
+    const rangePayments = pagos.filter(p =>
+      isWithinInterval(new Date(p.fecha), { start: rangeStart, end: rangeEnd })
     );
 
     // Group by project
-    const projectGroups = new Map<string, typeof weekPayments>();
-    const withoutProject: typeof weekPayments = [];
+    const projectGroups = new Map<string, typeof rangePayments>();
+    const withoutProject: typeof rangePayments = [];
 
-    for (const pago of weekPayments) {
+    for (const pago of rangePayments) {
       if (pago.proyectoId) {
         const existing = projectGroups.get(pago.proyectoId) || [];
         projectGroups.set(pago.proyectoId, [...existing, pago]);
@@ -81,7 +103,7 @@ export default function CorteSemanalDialog() {
       detalleProyectos.push({
         proyectoId: proyecto.id,
         nombre: proyecto.nombre,
-        dueno: proyecto.duenoCuenta || 'Sin dueño',
+        dueno: proyecto.duenoCuenta || 'Sin dueno',
         totalPagos: Math.round(totalPagos * 100) / 100,
         cantidadPagos: projectPayments.length,
         comisionPct,
@@ -112,10 +134,10 @@ export default function CorteSemanalDialog() {
       totalComisionUsuario += totalPagos;
     }
 
-    // Calculate weekly expenses (active panels' monthly cost / 4)
+    // Prorate expenses: costoMensual * (numDays / 30)
     const totalGastos = paneles
       .filter(p => p.estado === 'activo')
-      .reduce((sum, p) => sum + (p.costoMensual / 4), 0);
+      .reduce((sum, p) => sum + (p.costoMensual * numDays / 30), 0);
 
     const gananciaNeta = totalComisionUsuario - totalGastos;
 
@@ -127,30 +149,22 @@ export default function CorteSemanalDialog() {
       totalGastos: Math.round(totalGastos * 100) / 100,
       gananciaNeta: Math.round(gananciaNeta * 100) / 100,
     };
-  }, [pagos, proyectos, paneles, weekStart, weekEnd]);
-
-  const handlePrevWeek = () => {
-    setWeekStartFriday(d => subDays(d, 7));
-  };
-
-  const handleNextWeek = () => {
-    setWeekStartFriday(d => addDays(d, 7));
-  };
+  }, [pagos, proyectos, paneles, rangeStart, rangeEnd, numDays]);
 
   const handleSaveCorte = async () => {
     try {
       await addCorteSemanal({
-        fechaInicio: format(weekStart, 'yyyy-MM-dd'),
-        fechaFin: format(weekEnd, 'yyyy-MM-dd'),
-        totalIngresos: weeklyData.totalIngresos,
-        totalComisionUsuario: weeklyData.totalComisionUsuario,
-        totalPagadoDuenos: weeklyData.totalPagadoDuenos,
-        totalGastos: weeklyData.totalGastos,
-        gananciaNeta: weeklyData.gananciaNeta,
-        detalleProyectos: weeklyData.detalleProyectos,
+        fechaInicio: format(fechaInicio, 'yyyy-MM-dd'),
+        fechaFin: format(fechaFin, 'yyyy-MM-dd'),
+        totalIngresos: corteData.totalIngresos,
+        totalComisionUsuario: corteData.totalComisionUsuario,
+        totalPagadoDuenos: corteData.totalPagadoDuenos,
+        totalGastos: corteData.totalGastos,
+        gananciaNeta: corteData.gananciaNeta,
+        detalleProyectos: corteData.detalleProyectos,
         notas: notas.trim() || undefined,
       });
-      toast.success('Corte semanal guardado');
+      toast.success('Corte guardado');
       setNotas('');
       setOpen(false);
     } catch (error) {
@@ -162,11 +176,11 @@ export default function CorteSemanalDialog() {
   const buildWhatsAppText = (): string => {
     const lines: string[] = [];
     lines.push('✂️ *CORTE SEMANAL*');
-    lines.push(`📅 ${format(weekStart, 'd MMM', { locale: es })} - ${format(weekEnd, 'd MMM yyyy', { locale: es })}`);
+    lines.push(`📅 ${rangeLabel}`);
+    lines.push(`📆 ${numDays} dia${numDays !== 1 ? 's' : ''}`);
     lines.push('');
 
-    // Projects
-    for (const detalle of weeklyData.detalleProyectos) {
+    for (const detalle of corteData.detalleProyectos) {
       const countryEmoji = detalle.proyectoId === 'sin-proyecto'
         ? ''
         : proyectos.find(p => p.id === detalle.proyectoId)?.pais
@@ -175,7 +189,7 @@ export default function CorteSemanalDialog() {
 
       lines.push(`*${detalle.nombre.toUpperCase()}*${detalle.dueno !== '-' ? ` - ${detalle.dueno}${countryEmoji}` : ''}`);
       lines.push(`  ${detalle.cantidadPagos} pago${detalle.cantidadPagos !== 1 ? 's' : ''} | Total: $${detalle.totalPagos.toFixed(2)}`);
-      lines.push(`  Tu comisión (${detalle.comisionPct}%): $${detalle.comisionMonto.toFixed(2)}`);
+      lines.push(`  Tu comision (${detalle.comisionPct}%): $${detalle.comisionMonto.toFixed(2)}`);
 
       if (detalle.pagadoAlDueno > 0) {
         lines.push(`  Pagar a ${detalle.dueno}: $${detalle.pagadoAlDueno.toFixed(2)}`);
@@ -183,12 +197,11 @@ export default function CorteSemanalDialog() {
       lines.push('');
     }
 
-    // Summary
     lines.push('📊 *RESUMEN*');
-    lines.push(`  Ingresos: $${weeklyData.totalIngresos.toFixed(2)}`);
-    lines.push(`  Tu comisión total: $${weeklyData.totalComisionUsuario.toFixed(2)}`);
-    lines.push(`  Gastos semana: -$${weeklyData.totalGastos.toFixed(2)}`);
-    lines.push(`  *GANANCIA NETA: $${weeklyData.gananciaNeta.toFixed(2)}*`);
+    lines.push(`  Ingresos: $${corteData.totalIngresos.toFixed(2)}`);
+    lines.push(`  Tu comision total: $${corteData.totalComisionUsuario.toFixed(2)}`);
+    lines.push(`  Gastos (${numDays}d): -$${corteData.totalGastos.toFixed(2)}`);
+    lines.push(`  *GANANCIA NETA: $${corteData.gananciaNeta.toFixed(2)}*`);
 
     if (notas.trim()) {
       lines.push('');
@@ -205,7 +218,21 @@ export default function CorteSemanalDialog() {
     toast.success('Texto copiado al portapapeles');
   };
 
-  const isCurrent = isSameDay(weekStartFriday, getCurrentWeekFriday());
+  const handleSelectInicio = (date: Date | undefined) => {
+    if (!date) return;
+    const d = startOfDay(date);
+    setFechaInicio(d);
+    // If start is after end, move end to same day
+    if (d > fechaFin) setFechaFin(d);
+  };
+
+  const handleSelectFin = (date: Date | undefined) => {
+    if (!date) return;
+    const d = startOfDay(date);
+    setFechaFin(d);
+    // If end is before start, move start to same day
+    if (d < fechaInicio) setFechaInicio(d);
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -224,38 +251,81 @@ export default function CorteSemanalDialog() {
         </DialogHeader>
 
         <div className="space-y-4 text-sm">
-          {/* Week selector */}
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handlePrevWeek}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-
-            <div className={`flex-1 text-center text-sm font-semibold ${isCurrent ? 'text-primary' : ''}`}>
-              {weekLabel}
-            </div>
-
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleNextWeek}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+          {/* Quick presets */}
+          <div className="flex gap-1.5 flex-wrap">
+            {presets.map(preset => (
+              <button
+                key={preset.label}
+                onClick={preset.apply}
+                className={cn(
+                  'rounded-full px-3 py-1 text-[11px] font-medium border transition-colors',
+                  preset.active
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground'
+                )}
+              >
+                {preset.label}
+              </button>
+            ))}
           </div>
 
-          {!isCurrent && (
-            <button
-              onClick={() => setWeekStartFriday(getCurrentWeekFriday())}
-              className="w-full text-center text-[11px] text-primary hover:underline"
-            >
-              Ir a semana actual
-            </button>
-          )}
+          {/* Date pickers */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground">Fecha inicio</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start gap-2 text-xs h-9">
+                    <CalendarIcon className="h-3.5 w-3.5" />
+                    {format(fechaInicio, 'd MMM yyyy', { locale: es })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={fechaInicio}
+                    onSelect={handleSelectInicio}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground">Fecha fin</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start gap-2 text-xs h-9">
+                    <CalendarIcon className="h-3.5 w-3.5" />
+                    {format(fechaFin, 'd MMM yyyy', { locale: es })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="single"
+                    selected={fechaFin}
+                    onSelect={handleSelectFin}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          {/* Range info */}
+          <div className="text-center text-xs text-muted-foreground">
+            {rangeLabel} — <span className="font-medium text-foreground">{numDays} dia{numDays !== 1 ? 's' : ''}</span>
+          </div>
 
           {/* Projects grouped */}
-          {weeklyData.detalleProyectos.length === 0 ? (
+          {corteData.detalleProyectos.length === 0 ? (
             <div className="rounded-lg border border-border bg-muted/30 p-4 text-center text-xs text-muted-foreground">
-              No hay pagos en esta semana
+              No hay pagos en este periodo
             </div>
           ) : (
             <div className="space-y-3">
-              {weeklyData.detalleProyectos.map((detalle) => {
+              {corteData.detalleProyectos.map((detalle) => {
                 const proyecto = proyectos.find(p => p.id === detalle.proyectoId);
                 const countryLabel = proyecto?.pais ? ` - ${proyecto.pais}` : '';
 
@@ -280,7 +350,7 @@ export default function CorteSemanalDialog() {
 
                     <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
                       <div>
-                        <p className="text-[10px] text-muted-foreground">Tu comisión ({detalle.comisionPct}%)</p>
+                        <p className="text-[10px] text-muted-foreground">Tu comision ({detalle.comisionPct}%)</p>
                         <p className="text-sm font-semibold text-primary">${detalle.comisionMonto.toFixed(2)}</p>
                       </div>
                       {detalle.pagadoAlDueno > 0 && (
@@ -302,20 +372,20 @@ export default function CorteSemanalDialog() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-[10px] text-muted-foreground">Ingresos totales</p>
-                <p className="text-lg font-bold text-foreground">${weeklyData.totalIngresos.toFixed(2)}</p>
+                <p className="text-lg font-bold text-foreground">${corteData.totalIngresos.toFixed(2)}</p>
               </div>
               <div>
-                <p className="text-[10px] text-muted-foreground">Tu comisión total</p>
-                <p className="text-lg font-bold text-primary">${weeklyData.totalComisionUsuario.toFixed(2)}</p>
+                <p className="text-[10px] text-muted-foreground">Tu comision total</p>
+                <p className="text-lg font-bold text-primary">${corteData.totalComisionUsuario.toFixed(2)}</p>
               </div>
               <div>
-                <p className="text-[10px] text-muted-foreground">Gastos semana</p>
-                <p className="text-lg font-bold text-destructive">-${weeklyData.totalGastos.toFixed(2)}</p>
+                <p className="text-[10px] text-muted-foreground">Gastos ({numDays}d prorrateo)</p>
+                <p className="text-lg font-bold text-destructive">-${corteData.totalGastos.toFixed(2)}</p>
               </div>
               <div>
                 <p className="text-[10px] text-muted-foreground">Ganancia neta</p>
-                <p className={`text-lg font-bold ${weeklyData.gananciaNeta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}`}>
-                  ${weeklyData.gananciaNeta.toFixed(2)}
+                <p className={`text-lg font-bold ${corteData.gananciaNeta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}`}>
+                  ${corteData.gananciaNeta.toFixed(2)}
                 </p>
               </div>
             </div>
@@ -339,7 +409,7 @@ export default function CorteSemanalDialog() {
               variant="outline"
               className="flex-1 gap-2"
               onClick={handleCopyToClipboard}
-              disabled={weeklyData.detalleProyectos.length === 0}
+              disabled={corteData.detalleProyectos.length === 0}
             >
               <Copy className="h-4 w-4" />
               Copiar para WhatsApp
@@ -347,7 +417,7 @@ export default function CorteSemanalDialog() {
             <Button
               className="flex-1 gap-2"
               onClick={handleSaveCorte}
-              disabled={weeklyData.detalleProyectos.length === 0}
+              disabled={corteData.detalleProyectos.length === 0}
             >
               <Save className="h-4 w-4" />
               Guardar Corte
