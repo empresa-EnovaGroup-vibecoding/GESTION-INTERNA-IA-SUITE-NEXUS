@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
-import { Panel } from '@/types';
+import { Panel, Cliente, Suscripcion } from '@/types';
 import { Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import PanelCard from '@/components/PanelCard';
@@ -11,13 +11,31 @@ import { differenceInDays, parseISO } from 'date-fns';
 
 const SERVICIOS_FILTER = ['Todos', 'ChatGPT', 'CapCut', 'Canva', 'Veo 3', 'Claude', 'Midjourney'];
 
+export interface ClienteEnPanel {
+  cliente: Cliente;
+  suscripcion: Suscripcion;
+}
+
 export default function PanelesPage() {
-  const { paneles, deletePanel, updatePanel } = useData();
+  const { paneles, clientes, suscripciones, updatePanel } = useData();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Panel | null>(null);
   const [filterServicio, setFilterServicio] = useState('Todos');
   const [search, setSearch] = useState('');
   const [filterResumen, setFilterResumen] = useState('');
+
+  // Map: panelId -> clients assigned to it
+  const clientesPorPanel = useMemo(() => {
+    const map: Record<string, ClienteEnPanel[]> = {};
+    suscripciones.forEach(sub => {
+      if (!sub.panelId || sub.estado !== 'activa') return;
+      const cliente = clientes.find(c => c.id === sub.clienteId);
+      if (!cliente) return;
+      if (!map[sub.panelId]) map[sub.panelId] = [];
+      map[sub.panelId].push({ cliente, suscripcion: sub });
+    });
+    return map;
+  }, [suscripciones, clientes]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -27,13 +45,26 @@ export default function PanelesPage() {
       if (filterResumen === 'por-vencer') {
         if (!p.fechaExpiracion) return false;
         const diff = differenceInDays(parseISO(p.fechaExpiracion), hoy);
-        if (diff > 15) return false; // only show expiring in 15 days or already expired
+        if (diff > 15) return false;
       }
       if (filterServicio !== 'Todos' && !p.servicioAsociado?.toLowerCase().includes(filterServicio.toLowerCase())) return false;
-      if (q && !p.nombre.toLowerCase().includes(q) && !p.email.toLowerCase().includes(q) && !(p.notas || '').toLowerCase().includes(q)) return false;
+      if (q) {
+        // Search in panel data
+        const panelMatch = p.nombre.toLowerCase().includes(q)
+          || p.email.toLowerCase().includes(q)
+          || (p.notas || '').toLowerCase().includes(q)
+          || (p.proveedor || '').toLowerCase().includes(q);
+        // Search in assigned clients
+        const ceps = clientesPorPanel[p.id] || [];
+        const clienteMatch = ceps.some(cep =>
+          cep.cliente.nombre.toLowerCase().includes(q)
+          || cep.cliente.whatsapp.includes(q)
+          || (cep.suscripcion.credencialEmail || '').toLowerCase().includes(q)
+        );
+        if (!panelMatch && !clienteMatch) return false;
+      }
       return true;
     }).sort((a, b) => {
-      // When filtering by vencer, sort by expiration date (soonest first)
       if (filterResumen === 'por-vencer') {
         const diffA = differenceInDays(parseISO(a.fechaExpiracion), hoy);
         const diffB = differenceInDays(parseISO(b.fechaExpiracion), hoy);
@@ -41,7 +72,7 @@ export default function PanelesPage() {
       }
       return 0;
     });
-  }, [paneles, filterServicio, search, filterResumen]);
+  }, [paneles, filterServicio, search, filterResumen, clientesPorPanel]);
 
   const handleEdit = (panel: Panel) => {
     setEditing(panel);
@@ -88,7 +119,7 @@ export default function PanelesPage() {
           <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar por nombre, email o notas..."
+            placeholder="Buscar panel, cliente, email, WhatsApp..."
             className="pl-8 h-8 text-xs"
           />
         </div>
@@ -109,6 +140,14 @@ export default function PanelesPage() {
         </div>
       </div>
 
+      {/* Search hint */}
+      {search && (
+        <p className="text-[11px] text-muted-foreground">
+          Buscando en paneles y clientes asignados: <span className="font-medium text-foreground">{search}</span>
+          {' '}&middot; {filtered.length} resultado{filtered.length !== 1 ? 's' : ''}
+        </p>
+      )}
+
       {/* Grid */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16 text-center">
@@ -117,7 +156,7 @@ export default function PanelesPage() {
           </div>
           <p className="text-sm font-medium">No hay paneles</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {filterServicio !== 'Todos' || filterResumen ? 'Intenta cambiar los filtros' : 'Agrega tu primer panel de IA'}
+            {filterServicio !== 'Todos' || filterResumen || search ? 'Intenta cambiar los filtros' : 'Agrega tu primer panel de IA'}
           </p>
         </div>
       ) : (
@@ -126,6 +165,8 @@ export default function PanelesPage() {
             <PanelCard
               key={panel.id}
               panel={panel}
+              clientesAsignados={clientesPorPanel[panel.id] || []}
+              searchQuery={search}
               onEdit={handleEdit}
               onRenovar={(p) => {
                 const newDate = new Date(p.fechaExpiracion);
