@@ -24,6 +24,7 @@ export default function Dashboard({ onNavigate, onNavigateToPanel }: DashboardPr
   } = useData();
 
   const [showPaneles, setShowPaneles] = useState(false);
+  const [expandedServicio, setExpandedServicio] = useState<string | null>(null);
 
   const today = startOfDay(new Date());
   const in7Days = addDays(today, 7);
@@ -82,16 +83,18 @@ export default function Dashboard({ onNavigate, onNavigateToPanel }: DashboardPr
 
   // --- Personas por servicio ---
   const personasPorServicio = useMemo(() => {
-    const map: Record<string, { nombre: string; count: number }> = {};
+    const map: Record<string, { servicioId: string; nombre: string; count: number; clientes: { id: string; nombre: string }[] }> = {};
     for (const sub of suscripciones) {
       if (sub.estado !== 'activa') continue;
       const servicio = getServicioById(sub.servicioId);
       const nombre = servicio?.nombre || 'Otro';
-      if (!map[sub.servicioId]) map[sub.servicioId] = { nombre, count: 0 };
+      if (!map[sub.servicioId]) map[sub.servicioId] = { servicioId: sub.servicioId, nombre, count: 0, clientes: [] };
       map[sub.servicioId].count++;
+      const cliente = getCliente(sub.clienteId);
+      if (cliente) map[sub.servicioId].clientes.push({ id: cliente.id, nombre: cliente.nombre });
     }
     return Object.values(map).sort((a, b) => b.count - a.count);
-  }, [suscripciones, getServicioById]);
+  }, [suscripciones, getServicioById, clientes]);
 
   // --- Paneles por vencer ---
   const panelesUrgentes = useMemo(() => {
@@ -248,20 +251,40 @@ export default function Dashboard({ onNavigate, onNavigateToPanel }: DashboardPr
 
       {/* Personas por servicio */}
       {personasPorServicio.length > 0 && (
-        <button
-          onClick={() => onNavigate?.('servicios')}
-          className="w-full rounded-lg border border-border bg-card p-4 text-left hover:border-primary/30 transition-colors"
-        >
+        <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-xs text-muted-foreground mb-2">Suscriptores activos por servicio</p>
           <div className="flex flex-wrap gap-2">
             {personasPorServicio.map(s => (
-              <span key={s.nombre} className="inline-flex items-center gap-1.5 rounded-full bg-muted/50 px-3 py-1 text-xs">
+              <button
+                key={s.servicioId}
+                onClick={() => setExpandedServicio(expandedServicio === s.servicioId ? null : s.servicioId)}
+                className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs transition-colors '
+                  + (expandedServicio === s.servicioId
+                    ? 'bg-primary/15 ring-1 ring-primary/30'
+                    : 'bg-muted/50 hover:bg-muted')}
+              >
                 <span className="font-medium">{s.nombre}</span>
                 <span className="text-primary font-bold">{s.count}</span>
-              </span>
+              </button>
             ))}
           </div>
-        </button>
+          {expandedServicio && (() => {
+            const servicio = personasPorServicio.find(s => s.servicioId === expandedServicio);
+            if (!servicio) return null;
+            return (
+              <div className="mt-3 border-t border-border pt-3">
+                <p className="text-xs font-medium mb-2">{servicio.nombre} — {servicio.count} cliente{servicio.count !== 1 ? 's' : ''}:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {servicio.clientes.map(c => (
+                    <span key={c.id} className="inline-flex items-center rounded-md bg-muted/50 px-2 py-0.5 text-xs">
+                      {c.nombre}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
       )}
 
       {/* Paneles por vencer - desplegable compacto */}
