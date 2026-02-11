@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Palette, Users, Database, Upload, Plus, Trash2, Save, RotateCcw, FolderKanban } from 'lucide-react';
+import { Building2, Palette, Users, Database, Upload, Plus, Trash2, Save, RotateCcw, FolderKanban, ChevronDown, ChevronUp } from 'lucide-react';
 import { useConfiguracion, SIDEBAR_DEFAULTS } from '@/hooks/useConfiguracion';
 import { useData } from '@/contexts/DataContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,7 +24,7 @@ interface TeamMember {
 
 export default function ConfiguracionPage() {
   const { config, loading, updateConfig, refetch } = useConfiguracion();
-  const { proyectos, addProyecto, deleteProyecto } = useData();
+  const { proyectos, addProyecto, updateProyecto, deleteProyecto } = useData();
   const { colors: contentColors, updateColor: updateContentColor, resetColors: resetContentColors } = useContentTheme();
 
   // Empresa
@@ -46,6 +46,10 @@ export default function ConfiguracionPage() {
 
   // Proyectos
   const [newProyectoNombre, setNewProyectoNombre] = useState('');
+  const [newProyectoDueno, setNewProyectoDueno] = useState('');
+  const [newProyectoComision, setNewProyectoComision] = useState('30');
+  const [newProyectoPais, setNewProyectoPais] = useState('');
+  const [editingProyectoId, setEditingProyectoId] = useState<string | null>(null);
 
   // Datos
   const [comisionPorcentaje, setComisionPorcentaje] = useState('5');
@@ -350,44 +354,104 @@ export default function ConfiguracionPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-xs text-muted-foreground">
-            Crea proyectos para etiquetar pagos y ver finanzas separadas por negocio.
+            Cada proyecto tiene un dueno de cuenta y tu comision. Esto se usa para el corte semanal.
           </p>
           {proyectos.length > 0 && (
             <div className="space-y-2">
-              {proyectos.map(p => (
-                <div key={p.id} className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
-                  <p className="text-sm font-medium">{p.nombre}</p>
-                  <Button variant="ghost" size="icon" onClick={() => { deleteProyecto(p.id); toast.success('Proyecto eliminado'); }}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              ))}
+              {proyectos.map(p => {
+                const isEditing = editingProyectoId === p.id;
+                return (
+                  <div key={p.id} className="rounded-lg border border-border overflow-hidden">
+                    <div
+                      className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-muted/30"
+                      onClick={() => setEditingProyectoId(isEditing ? null : p.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <p className="text-sm font-medium">{p.nombre}</p>
+                        {p.duenoCuenta && <span className="text-xs text-muted-foreground">{p.duenoCuenta}{p.pais ? ` - ${p.pais}` : ''}</span>}
+                        {p.comisionPorcentaje != null && <span className="text-xs text-primary font-medium">{p.comisionPorcentaje}%</span>}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {isEditing ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); deleteProyecto(p.id); toast.success('Proyecto eliminado'); }}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                    {isEditing && (
+                      <div className="px-4 pb-4 pt-1 border-t border-border space-y-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Nombre</Label>
+                            <Input value={p.nombre} onChange={e => updateProyecto({ ...p, nombre: e.target.value })} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Dueno de cuenta</Label>
+                            <Input value={p.duenoCuenta || ''} placeholder="Ej: Pedro" onChange={e => updateProyecto({ ...p, duenoCuenta: e.target.value })} />
+                          </div>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Tu comision (%)</Label>
+                            <Input type="number" value={p.comisionPorcentaje ?? 30} onChange={e => updateProyecto({ ...p, comisionPorcentaje: parseFloat(e.target.value) || 0 })} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Pais del dueno</Label>
+                            <Select value={p.pais || ''} onValueChange={v => updateProyecto({ ...p, pais: v })}>
+                              <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Colombia">Colombia</SelectItem>
+                                <SelectItem value="Mexico">Mexico</SelectItem>
+                                <SelectItem value="Ecuador">Ecuador</SelectItem>
+                                <SelectItem value="Venezuela">Venezuela</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
-          <div className="flex gap-2">
-            <Input
-              placeholder="Nombre del proyecto (ej: Nexus, Exito...)"
-              value={newProyectoNombre}
-              onChange={e => setNewProyectoNombre(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && newProyectoNombre.trim()) {
-                  addProyecto({ nombre: newProyectoNombre.trim() });
-                  setNewProyectoNombre('');
-                  toast.success('Proyecto creado');
-                }
-              }}
-            />
+          <div className="space-y-3 rounded-lg border border-dashed border-border p-4">
+            <p className="text-xs font-medium text-muted-foreground">Nuevo proyecto</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input placeholder="Nombre (ej: Nexus)" value={newProyectoNombre} onChange={e => setNewProyectoNombre(e.target.value)} />
+              <Input placeholder="Dueno de cuenta (ej: Pedro)" value={newProyectoDueno} onChange={e => setNewProyectoDueno(e.target.value)} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input type="number" placeholder="Tu comision % (ej: 30)" value={newProyectoComision} onChange={e => setNewProyectoComision(e.target.value)} />
+              <Select value={newProyectoPais} onValueChange={setNewProyectoPais}>
+                <SelectTrigger><SelectValue placeholder="Pais del dueno" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Colombia">Colombia</SelectItem>
+                  <SelectItem value="Mexico">Mexico</SelectItem>
+                  <SelectItem value="Ecuador">Ecuador</SelectItem>
+                  <SelectItem value="Venezuela">Venezuela</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button
               variant="outline"
               size="sm"
               disabled={!newProyectoNombre.trim()}
               onClick={() => {
-                addProyecto({ nombre: newProyectoNombre.trim() });
+                addProyecto({
+                  nombre: newProyectoNombre.trim(),
+                  duenoCuenta: newProyectoDueno.trim() || undefined,
+                  comisionPorcentaje: parseFloat(newProyectoComision) || 30,
+                  pais: newProyectoPais || undefined,
+                });
                 setNewProyectoNombre('');
+                setNewProyectoDueno('');
+                setNewProyectoComision('30');
+                setNewProyectoPais('');
                 toast.success('Proyecto creado');
               }}
             >
-              <Plus className="h-4 w-4 mr-1" /> Crear
+              <Plus className="h-4 w-4 mr-1" /> Crear proyecto
             </Button>
           </div>
         </CardContent>

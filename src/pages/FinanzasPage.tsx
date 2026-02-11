@@ -20,6 +20,8 @@ import ResumenPorPais from '@/components/finanzas/ResumenPorPais';
 import RegistrarPagoDialog from '@/components/finanzas/RegistrarPagoDialog';
 import NuevoCorteDialog from '@/components/finanzas/NuevoCorteDialog';
 import CortesHistorial from '@/components/finanzas/CortesHistorial';
+import CorteSemanalDialog from '@/components/finanzas/CorteSemanalDialog';
+import CorteSemanalHistorial from '@/components/finanzas/CorteSemanalHistorial';
 import ReporteSemanalDialog from '@/components/finanzas/ReporteSemanalDialog';
 import MetaMensual from '@/components/finanzas/MetaMensual';
 import MetaHistorial from '@/components/finanzas/MetaHistorial';
@@ -180,6 +182,7 @@ export default function FinanzasPage() {
             </Select>
           )}
           <ReporteSemanalDialog />
+          <CorteSemanalDialog />
           <NuevoCorteDialog />
           <RegistrarPagoDialog />
         </div>
@@ -192,6 +195,7 @@ export default function FinanzasPage() {
           <TabsTrigger value="pagos">Pagos</TabsTrigger>
           <TabsTrigger value="ingresos-gastos">Ingresos y Gastos</TabsTrigger>
           <TabsTrigger value="cortes">Cortes P2P</TabsTrigger>
+          <TabsTrigger value="cortes-semanales">Cortes Semanales</TabsTrigger>
           <TabsTrigger value="metas">Metas y Analisis</TabsTrigger>
         </TabsList>
 
@@ -291,7 +295,12 @@ export default function FinanzasPage() {
           <CortesHistorial selectedDate={selectedDate} />
         </TabsContent>
 
-        {/* Tab 5: Metas y Analisis */}
+        {/* Tab 5: Cortes Semanales */}
+        <TabsContent value="cortes-semanales" className="space-y-6 mt-4">
+          <CorteSemanalHistorial selectedDate={selectedDate} />
+        </TabsContent>
+
+        {/* Tab 6: Metas y Analisis */}
         <TabsContent value="metas" className="space-y-6 mt-4">
           <MetasPorServicio mesKey={fmtDate(selectedDate, 'yyyy-MM')} selectedDate={selectedDate} />
           <MetaHistorial currentMesKey={fmtDate(selectedDate, 'yyyy-MM')} />

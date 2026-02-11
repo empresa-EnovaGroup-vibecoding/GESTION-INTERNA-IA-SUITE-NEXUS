@@ -86,6 +86,33 @@ export interface Pago {
 export interface Proyecto {
   id: string;
   nombre: string;
+  duenoCuenta?: string;
+  comisionPorcentaje?: number;
+  pais?: string;
+}
+
+export interface DetalleProyectoCorteSemanal {
+  proyectoId: string;
+  nombre: string;
+  dueno: string;
+  totalPagos: number;
+  cantidadPagos: number;
+  comisionPct: number;
+  comisionMonto: number;
+  pagadoAlDueno: number;
+}
+
+export interface CorteSemanal {
+  id: string;
+  fechaInicio: string;
+  fechaFin: string;
+  totalIngresos: number;
+  totalComisionUsuario: number;
+  totalPagadoDuenos: number;
+  totalGastos: number;
+  gananciaNeta: number;
+  detalleProyectos: DetalleProyectoCorteSemanal[];
+  notas?: string;
 }
 
 export interface Corte {

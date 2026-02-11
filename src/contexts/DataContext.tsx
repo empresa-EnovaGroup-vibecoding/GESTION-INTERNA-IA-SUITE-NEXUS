@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Panel, Cliente, Servicio, Suscripcion, Pago, Corte, Proyecto, EstadoPanel, CredencialHistorial } from '@/types';
+import { Panel, Cliente, Servicio, Suscripcion, Pago, Corte, Proyecto, CorteSemanal, EstadoPanel, CredencialHistorial } from '@/types';
 import { addDays, format, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 import { supabaseExternal } from '@/lib/supabaseExternal';
 import { PanelSchema, ClienteSchema, ServicioSchema, SuscripcionSchema, PagoSchema, CorteSchema, validateInput } from '@/lib/validationSchemas';
@@ -13,6 +13,7 @@ interface DataContextType {
   pagos: Pago[];
   cortes: Corte[];
   proyectos: Proyecto[];
+  cortesSemanales: CorteSemanal[];
   loading: boolean;
   // Paneles
   addPanel: (panel: Omit<Panel, 'id' | 'cuposUsados' | 'historialCredenciales'>) => void;
@@ -43,8 +44,12 @@ interface DataContextType {
   deleteCorte: (id: string) => void;
   // Proyectos
   addProyecto: (proyecto: Omit<Proyecto, 'id'>) => void;
+  updateProyecto: (proyecto: Proyecto) => void;
   deleteProyecto: (id: string) => void;
   getProyectoById: (id: string) => Proyecto | undefined;
+  // Cortes Semanales
+  addCorteSemanal: (corte: Omit<CorteSemanal, 'id'>) => void;
+  deleteCorteSemanal: (id: string) => void;
   // Helpers
   getPanelById: (id: string) => Panel | undefined;
   getCuposDisponibles: (panelId: string) => number;
@@ -146,10 +151,42 @@ function rowToPago(r: any): Pago {
 }
 
 function proyectoToRow(p: Proyecto) {
-  return { id: p.id, nombre: p.nombre };
+  return {
+    id: p.id, nombre: p.nombre,
+    dueno_cuenta: p.duenoCuenta ?? null,
+    comision_porcentaje: p.comisionPorcentaje ?? null,
+    pais: p.pais ?? null,
+  };
 }
-function rowToProyecto(r: any): Proyecto {
-  return { id: r.id, nombre: r.nombre };
+function rowToProyecto(r: unknown): Proyecto {
+  const row = r as Record<string, unknown>;
+  return {
+    id: row.id as string, nombre: row.nombre as string,
+    duenoCuenta: (row.dueno_cuenta as string) ?? undefined,
+    comisionPorcentaje: row.comision_porcentaje != null ? Number(row.comision_porcentaje) : undefined,
+    pais: (row.pais as string) ?? undefined,
+  };
+}
+
+function corteSemanalToRow(c: CorteSemanal) {
+  return {
+    id: c.id, fecha_inicio: c.fechaInicio, fecha_fin: c.fechaFin,
+    total_ingresos: c.totalIngresos, total_comision_usuario: c.totalComisionUsuario,
+    total_pagado_duenos: c.totalPagadoDuenos, total_gastos: c.totalGastos,
+    ganancia_neta: c.gananciaNeta, detalle_proyectos: c.detalleProyectos as unknown,
+    notas: c.notas ?? null,
+  };
+}
+function rowToCorteSemanal(r: unknown): CorteSemanal {
+  const row = r as Record<string, unknown>;
+  return {
+    id: row.id as string, fechaInicio: row.fecha_inicio as string, fechaFin: row.fecha_fin as string,
+    totalIngresos: Number(row.total_ingresos), totalComisionUsuario: Number(row.total_comision_usuario),
+    totalPagadoDuenos: Number(row.total_pagado_duenos), totalGastos: Number(row.total_gastos),
+    gananciaNeta: Number(row.ganancia_neta),
+    detalleProyectos: (row.detalle_proyectos as CorteSemanal['detalleProyectos']) || [],
+    notas: (row.notas as string) ?? undefined,
+  };
 }
 
 function corteToRow(c: Corte) {
@@ -220,6 +257,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [cortes, setCortes] = useState<Corte[]>([]);
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
+  const [cortesSemanales, setCortesSemanales] = useState<CorteSemanal[]>([]);
   const [loading, setLoading] = useState(true);
   const initialized = useRef(false);
 
@@ -233,7 +271,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       await migrateLocalStorageToSupabase();
 
       // Then fetch everything from Supabase
-      const [pRes, cRes, sRes, subRes, pgRes, coRes, prRes] = await Promise.all([
+      const [pRes, cRes, sRes, subRes, pgRes, coRes, prRes, csRes] = await Promise.all([
         supabaseExternal.from('paneles').select('*'),
         supabaseExternal.from('clientes').select('*'),
         supabaseExternal.from('servicios').select('*'),
@@ -241,6 +279,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         supabaseExternal.from('pagos').select('*'),
         supabaseExternal.from('cortes').select('*'),
         supabaseExternal.from('proyectos').select('*'),
+        supabaseExternal.from('cortes_semanales').select('*'),
       ]);
 
       setPaneles((pRes.data || []).map(rowToPanel));
@@ -250,6 +289,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setPagos((pgRes.data || []).map(rowToPago));
       setCortes((coRes.data || []).map(rowToCorte));
       setProyectos((prRes.data || []).map(rowToProyecto));
+      setCortesSemanales((csRes.data || []).map(rowToCorteSemanal));
       setLoading(false);
     }
 
@@ -534,6 +574,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await supabaseExternal.from('proyectos').insert(proyectoToRow(newProyecto));
   }, []);
 
+  const updateProyecto = useCallback(async (proyecto: Proyecto) => {
+    setProyectos(prev => prev.map(p => p.id === proyecto.id ? proyecto : p));
+    await supabaseExternal.from('proyectos').update(proyectoToRow(proyecto)).eq('id', proyecto.id);
+  }, []);
+
   const deleteProyecto = useCallback(async (id: string) => {
     setProyectos(prev => prev.filter(p => p.id !== id));
     setPagos(prev => prev.map(p => p.proyectoId === id ? { ...p, proyectoId: undefined } : p));
@@ -545,6 +590,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const getProyectoById = useCallback((id: string) => proyectos.find(p => p.id === id), [proyectos]);
 
+  // --- Cortes Semanales ---
+  const addCorteSemanal = useCallback(async (corte: Omit<CorteSemanal, 'id'>) => {
+    const newCorte: CorteSemanal = { ...corte, id: generateId() };
+    setCortesSemanales(prev => [...prev, newCorte]);
+    await supabaseExternal.from('cortes_semanales').insert(corteSemanalToRow(newCorte));
+  }, []);
+
+  const deleteCorteSemanal = useCallback(async (id: string) => {
+    setCortesSemanales(prev => prev.filter(c => c.id !== id));
+    await supabaseExternal.from('cortes_semanales').delete().eq('id', id);
+  }, []);
+
   // --- Helpers ---
   const getPanelById = useCallback((id: string) => paneles.find(p => p.id === id), [paneles]);
 
@@ -555,14 +612,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      paneles, clientes, servicios, suscripciones, pagos, cortes, proyectos, loading,
+      paneles, clientes, servicios, suscripciones, pagos, cortes, proyectos, cortesSemanales, loading,
       addPanel, updatePanel, deletePanel, rotarCredenciales,
       addCliente, addClienteConSuscripciones, updateCliente, deleteCliente,
       addServicio, updateServicio, deleteServicio, getServicioById,
       addSuscripcion, updateSuscripcion, deleteSuscripcion, getSuscripcionesByCliente,
       addPago, updatePago, deletePago,
       addCorte, deleteCorte,
-      addProyecto, deleteProyecto, getProyectoById,
+      addProyecto, updateProyecto, deleteProyecto, getProyectoById,
+      addCorteSemanal, deleteCorteSemanal,
       getPanelById, getCuposDisponibles,
     }}>
       {children}

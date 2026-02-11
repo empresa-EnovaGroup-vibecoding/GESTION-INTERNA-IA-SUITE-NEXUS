@@ -1,10 +1,10 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useData } from '@/contexts/DataContext';
-import { format, isToday, isBefore, addDays, isAfter, startOfDay, differenceInDays, isSameMonth, parseISO } from 'date-fns';
+import { format, isToday, isBefore, addDays, isAfter, startOfDay, differenceInDays, isSameMonth, parseISO, isFriday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   AlertTriangle, Clock, Users, Monitor, TrendingUp,
-  CalendarClock, MessageCircle, RefreshCw, ChevronDown, ChevronUp, CheckCircle2, ExternalLink,
+  CalendarClock, MessageCircle, RefreshCw, ChevronDown, ChevronUp, CheckCircle2, ExternalLink, Scissors,
 } from 'lucide-react';
 import { getWhatsAppNotificationUrl } from '@/lib/whatsapp';
 import { Suscripcion } from '@/types';
@@ -179,6 +179,20 @@ export default function Dashboard({ onNavigate, onNavigateToPanel }: DashboardPr
   return (
     <div className="space-y-5">
       <InstallBanner />
+
+      {/* Friday reminder banner */}
+      {isFriday(today) && (
+        <button
+          onClick={() => onNavigate?.('finanzas')}
+          className="w-full flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-left hover:bg-primary/10 transition-colors"
+        >
+          <Scissors className="h-5 w-5 text-primary shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-primary">Es viernes - hora del corte semanal</p>
+            <p className="text-xs text-muted-foreground">Click para ir a Finanzas y crear tu corte</p>
+          </div>
+        </button>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
