@@ -34,7 +34,8 @@ export default function PagosRecientes({ selectedDate }: Props) {
     return todos.filter(p => {
       const nombre = getClienteNombre(p.clienteId).toLowerCase();
       const metodo = p.metodo.toLowerCase();
-      return nombre.includes(q) || metodo.includes(q);
+      const ref = (p.referencia || '').toLowerCase();
+      return nombre.includes(q) || metodo.includes(q) || ref.includes(q);
     });
   }, [pagos, selectedDate, searchPago, clientes]);
 
@@ -60,7 +61,7 @@ export default function PagosRecientes({ selectedDate }: Props) {
             <Input
               value={searchPago}
               onChange={e => setSearchPago(e.target.value)}
-              placeholder="Buscar cliente o metodo..."
+              placeholder="Buscar cliente, ref..."
               className="pl-8 h-8 text-xs"
             />
           </div>
@@ -72,6 +73,7 @@ export default function PagosRecientes({ selectedDate }: Props) {
               <TableHead className="table-header">Cliente</TableHead>
               <TableHead className="table-header text-right">Monto</TableHead>
               <TableHead className="table-header">Metodo</TableHead>
+              <TableHead className="table-header">Ref</TableHead>
               <TableHead className="table-header text-right">Accion</TableHead>
             </TableRow>
           </TableHeader>
@@ -95,6 +97,13 @@ export default function PagosRecientes({ selectedDate }: Props) {
                 </TableCell>
                 <TableCell>
                   <Badge variant="secondary" className="text-[10px]">{p.metodo}</Badge>
+                </TableCell>
+                <TableCell>
+                  {p.referencia ? (
+                    <span className="text-xs text-muted-foreground font-mono">{p.referencia}</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground/40">-</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">

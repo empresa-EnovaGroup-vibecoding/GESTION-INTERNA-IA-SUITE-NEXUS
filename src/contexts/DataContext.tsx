@@ -121,6 +121,7 @@ function pagoToRow(p: Pago) {
     monto_original: p.montoOriginal ?? null, moneda: p.moneda ?? null,
     tasa_cambio: p.tasaCambio ?? null, metodo: p.metodo,
     fecha: p.fecha, corte_id: p.corteId ?? null,
+    referencia: p.referencia ?? null,
     comprobante_url: p.comprobanteUrl ?? null,
     datos_extraidos: p.datosExtraidos ?? null,
   };
@@ -131,6 +132,7 @@ function rowToPago(r: any): Pago {
     montoOriginal: r.monto_original ?? undefined, moneda: r.moneda ?? undefined,
     tasaCambio: r.tasa_cambio ?? undefined, metodo: r.metodo,
     fecha: r.fecha, corteId: r.corte_id ?? undefined,
+    referencia: r.referencia ?? undefined,
     comprobanteUrl: r.comprobante_url ?? undefined,
     datosExtraidos: r.datos_extraidos ?? undefined,
   };

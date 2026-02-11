@@ -76,6 +76,7 @@ export interface Pago {
   metodo: MetodoPago;
   fecha: string;
   corteId?: string; // linked to a Corte for currency conversion
+  referencia?: string; // transaction reference number
   comprobanteUrl?: string; // link to receipt image in Supabase Storage
   datosExtraidos?: Record<string, unknown>; // AI-extracted data from receipt
 }

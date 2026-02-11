@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { MetodoPago, MonedaPago, PaisCliente } from '@/types';
 import { format } from 'date-fns';
-import { Plus, Upload, Loader2, X } from 'lucide-react';
+import { Plus, Upload, Loader2, X, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -70,6 +70,7 @@ export default function RegistrarPagoDialog() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [aiData, setAiData] = useState<ExtractedData | null>(null);
+  const [pagosRegistrados, setPagosRegistrados] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
@@ -79,6 +80,7 @@ export default function RegistrarPagoDialog() {
     fecha: format(new Date(), 'yyyy-MM-dd'),
     moneda: 'USD' as MonedaPago,
     tasaCambio: '',
+    referencia: '',
   });
 
   useEffect(() => {
@@ -141,6 +143,7 @@ export default function RegistrarPagoDialog() {
           moneda: d.moneda ? mapMoneda(d.moneda) : f.moneda,
           metodo: (d.metodo || f.metodo) as MetodoPago | '',
           fecha: d.fecha || f.fecha,
+          referencia: d.referencia ? String(d.referencia) : f.referencia,
         }));
 
         if (d.remitente) {
@@ -208,25 +211,48 @@ export default function RegistrarPagoDialog() {
       tasaCambio: needsRate ? tasaCambio : undefined,
       metodo: form.metodo as MetodoPago,
       fecha: form.fecha,
+      referencia: form.referencia || undefined,
       comprobanteUrl,
       datosExtraidos: aiData ? (aiData as unknown as Record<string, unknown>) : undefined,
     });
 
-    toast.success('Pago registrado: $' + montoUSD.toFixed(2) + ' USD');
-    setOpen(false);
-    resetForm();
+    const count = pagosRegistrados + 1;
+    setPagosRegistrados(count);
+    toast.success('Pago #' + count + ' registrado: $' + montoUSD.toFixed(2) + ' USD');
+
+    // Keep clienteId, moneda, metodo, tasaCambio for fast re-entry
+    const keepClienteId = form.clienteId;
+    const keepMoneda = form.moneda;
+    const keepMetodo = form.metodo;
+    const keepTasa = form.tasaCambio;
+    clearImage();
+    setForm({
+      clienteId: keepClienteId,
+      monto: '',
+      metodo: keepMetodo,
+      fecha: format(new Date(), 'yyyy-MM-dd'),
+      moneda: keepMoneda,
+      tasaCambio: keepTasa,
+      referencia: '',
+    });
   };
 
   const resetForm = () => {
     setForm({
       clienteId: '', monto: '', metodo: '' as MetodoPago | '', moneda: 'USD', tasaCambio: '',
-      fecha: format(new Date(), 'yyyy-MM-dd'),
+      fecha: format(new Date(), 'yyyy-MM-dd'), referencia: '',
     });
     clearImage();
+    setPagosRegistrados(0);
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+    resetForm();
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else setOpen(true); }}>
       <DialogTrigger asChild>
         <Button size="sm" className="gap-1.5">
           <Plus className="h-4 w-4" />
@@ -235,7 +261,15 @@ export default function RegistrarPagoDialog() {
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Registrar Pago de Cliente</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Registrar Pago de Cliente</DialogTitle>
+            {pagosRegistrados > 0 && (
+              <span className="flex items-center gap-1 text-xs font-medium text-success bg-success/10 px-2 py-1 rounded-full">
+                <CheckCircle2 className="h-3 w-3" />
+                {pagosRegistrados} registrado{pagosRegistrados !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
 
@@ -391,24 +425,42 @@ export default function RegistrarPagoDialog() {
             </div>
           </div>
 
-          {/* AI reference info */}
-          {aiData && aiData.referencia && (
-            <div className="rounded-md bg-muted/50 p-2.5 text-xs text-muted-foreground">
-              Referencia detectada: <span className="font-medium text-foreground">{String(aiData.referencia)}</span>
-            </div>
-          )}
+          {/* Referencia */}
+          <div className="space-y-2">
+            <Label>Referencia / No. transaccion (opcional)</Label>
+            <Input
+              value={form.referencia}
+              onChange={e => setForm(f => ({ ...f, referencia: e.target.value }))}
+              placeholder="Ej: 4928788"
+              maxLength={200}
+            />
+          </div>
 
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={!form.clienteId || !form.metodo || !form.monto || (needsRate && tasaCambio <= 0) || analyzing}
-          >
-            {analyzing ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analizando...</>
-            ) : (
-              <>Registrar Pago {montoUSD > 0 ? '- $' + montoUSD.toFixed(2) + ' USD' : ''}</>
+          {/* Buttons */}
+          <div className="flex gap-2">
+            <Button
+              type="submit"
+              className="flex-1"
+              disabled={!form.clienteId || !form.metodo || !form.monto || (needsRate && tasaCambio <= 0) || analyzing}
+            >
+              {analyzing ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analizando...</>
+              ) : (
+                <>Registrar {montoUSD > 0 ? '- $' + montoUSD.toFixed(2) + ' USD' : ''}</>
+              )}
+            </Button>
+            {pagosRegistrados > 0 && (
+              <Button type="button" variant="outline" onClick={handleClose}>
+                Listo
+              </Button>
             )}
-          </Button>
+          </div>
+
+          {pagosRegistrados > 0 && (
+            <p className="text-center text-xs text-muted-foreground">
+              El formulario se limpia para registrar el siguiente pago. Click "Listo" para cerrar.
+            </p>
+          )}
         </form>
       </DialogContent>
     </Dialog>

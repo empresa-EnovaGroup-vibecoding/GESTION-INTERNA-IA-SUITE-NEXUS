@@ -49,6 +49,7 @@ export const PagoSchema = z.object({
   tasaCambio: z.number().positive().optional(),
   metodo: z.enum(['Binance Pay', 'Binance P2P', 'Transferencia bancaria', 'Zelle', 'Nequi', 'Mercado Pago', 'PayPal', 'Efectivo']),
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida'),
+  referencia: z.string().max(200).optional(),
   corteId: z.string().uuid().optional(),
 });
 
