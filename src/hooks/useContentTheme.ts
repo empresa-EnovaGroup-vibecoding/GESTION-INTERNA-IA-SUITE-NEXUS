@@ -19,12 +19,12 @@ export const CONTENT_DEFAULTS: ContentColors = {
 };
 
 export const CONTENT_DEFAULTS_DARK: ContentColors = {
-  content_bg: '#171718',
-  content_card_bg: '#212123',
-  content_hover_bg: '#2a2a2d',
-  content_text: '#e2e8f0',
-  content_text_secondary: '#a1afc0',
-  content_text_heading: '#f8fafc',
+  content_bg: '#0e0e11',
+  content_card_bg: '#17171a',
+  content_hover_bg: '#1e1e22',
+  content_text: '#ececf0',
+  content_text_secondary: '#6e6e7a',
+  content_text_heading: '#f5f5f7',
 };
 
 const STORAGE_KEY_LIGHT = 'content-theme-colors-light';

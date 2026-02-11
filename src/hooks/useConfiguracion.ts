@@ -23,15 +23,15 @@ export interface ConfigMap {
 }
 
 export const SIDEBAR_DEFAULTS = {
-  sidebar_bg: '#141415',
-  sidebar_text: '#a1afc0',
-  sidebar_active_bg: '#2a2a2c',
-  sidebar_active_text: '#ffffff',
-  sidebar_hover_bg: '#1e1e20',
-  sidebar_icon_color: '#7b8a9e',
+  sidebar_bg: '#0c0c0f',
+  sidebar_text: '#8a8a96',
+  sidebar_active_bg: '#1a1a1e',
+  sidebar_active_text: '#ececf0',
+  sidebar_hover_bg: '#141418',
+  sidebar_icon_color: '#5f5f6a',
   sidebar_icon_active: '#4ef4c2',
-  sidebar_border: '#2a2a2c',
-  sidebar_logo_bg: '#1a1a1c',
+  sidebar_border: '#1e1e23',
+  sidebar_logo_bg: '#111114',
 };
 
 const DEFAULTS: ConfigMap = {

@@ -44,7 +44,7 @@
     --input: 214 32% 91%;
     --ring: 175 83% 32%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
     --sidebar-background: 240 28% 14%;
     --sidebar-foreground: 214 32% 91%;
@@ -66,60 +66,61 @@
   }
 
   .dark {
-    --background: 0 0% 9%;
-    --foreground: 210 40% 98%;
+    /* Linear-inspired: deep, flat, minimal */
+    --background: 240 5% 6%;
+    --foreground: 220 10% 93%;
 
-    --card: 0 0% 13%;
-    --card-foreground: 210 40% 98%;
+    --card: 240 4% 10%;
+    --card-foreground: 220 10% 93%;
 
-    --popover: 0 0% 13%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 240 4% 12%;
+    --popover-foreground: 220 10% 93%;
 
     --primary: 175 83% 32%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 240 3% 14%;
+    --secondary-foreground: 220 10% 93%;
 
-    --muted: 0 0% 17%;
-    --muted-foreground: 215 20% 72%;
+    --muted: 240 3% 14%;
+    --muted-foreground: 225 5% 50%;
 
-    --accent: 0 0% 17%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 240 3% 14%;
+    --accent-foreground: 220 10% 93%;
 
-    --destructive: 347 80% 50%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 55% 50%;
+    --destructive-foreground: 220 10% 93%;
 
-    --warning: 38 92% 50%;
+    --warning: 38 60% 48%;
     --warning-foreground: 0 0% 100%;
 
-    --success: 160 84% 39%;
+    --success: 160 45% 42%;
     --success-foreground: 0 0% 100%;
 
-    --violet: 263 90% 66%;
+    --violet: 263 55% 56%;
     --violet-foreground: 0 0% 100%;
 
-    --border: 0 0% 22%;
-    --input: 0 0% 22%;
+    --border: 240 4% 15%;
+    --input: 240 4% 15%;
     --ring: 175 83% 32%;
 
-    --sidebar-background: 0 0% 8%;
-    --sidebar-foreground: 215 20% 85%;
+    --sidebar-background: 240 5% 5%;
+    --sidebar-foreground: 220 8% 70%;
     --sidebar-primary: 175 83% 32%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 14%;
+    --sidebar-accent: 240 4% 11%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 0 0% 20%;
+    --sidebar-border: 240 4% 13%;
     --sidebar-ring: 175 83% 32%;
-    --sidebar-muted: 215 15% 55%;
+    --sidebar-muted: 220 5% 42%;
 
-    /* Content theme defaults - dark */
-    --content-bg: #171718;
-    --content-card-bg: #212123;
-    --content-hover-bg: #2a2a2d;
-    --content-text: #e2e8f0;
-    --content-text-secondary: #a1afc0;
-    --content-text-heading: #f8fafc;
+    /* Content theme defaults - dark (Linear-inspired) */
+    --content-bg: #0e0e11;
+    --content-card-bg: #17171a;
+    --content-hover-bg: #1e1e22;
+    --content-text: #ececf0;
+    --content-text-secondary: #6e6e7a;
+    --content-text-heading: #f5f5f7;
   }
 }
 
@@ -135,39 +136,19 @@
 }
 
 @layer utilities {
+  /* Linear-style: flat cards, no shadows, no float, subtle borders */
   .glass-card {
-    @apply rounded-2xl p-6 transition-all duration-200 hover:-translate-y-0.5;
+    @apply rounded-lg p-5 transition-colors duration-150;
     background-color: var(--content-card-bg, hsl(var(--card)));
     color: var(--content-text, inherit);
     border: 1px solid hsl(var(--border));
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
-  }
-
-  .glass-card:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.06);
   }
 
   .stat-card {
-    @apply rounded-2xl p-6 transition-all duration-200 hover:-translate-y-0.5;
+    @apply rounded-lg p-5 transition-colors duration-150;
     background-color: var(--content-card-bg, hsl(var(--card)));
     color: var(--content-text, inherit);
     border: 1px solid hsl(var(--border));
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
-  }
-
-  .stat-card:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.06);
-  }
-
-  /* Dark mode: stronger shadows and glow for depth */
-  .dark .glass-card,
-  .dark .stat-card {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2);
-  }
-
-  .dark .glass-card:hover,
-  .dark .stat-card:hover {
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.3);
   }
 
   .alert-badge {
