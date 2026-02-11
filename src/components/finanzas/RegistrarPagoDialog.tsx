@@ -323,7 +323,6 @@ export default function RegistrarPagoDialog() {
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              capture="environment"
               onChange={handleImageUpload}
               className="hidden"
             />
