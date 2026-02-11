@@ -13,10 +13,11 @@ import { toast } from 'sonner';
 import InstallBanner from '@/components/InstallBanner';
 
 interface DashboardProps {
+  onNavigate?: (page: 'clientes' | 'paneles' | 'finanzas' | 'servicios') => void;
   onNavigateToPanel?: (search: string) => void;
 }
 
-export default function Dashboard({ onNavigateToPanel }: DashboardProps) {
+export default function Dashboard({ onNavigate, onNavigateToPanel }: DashboardProps) {
   const {
     clientes, paneles, suscripciones, pagos, cortes,
     getPanelById, getServicioById, updateSuscripcion,
@@ -133,17 +134,19 @@ export default function Dashboard({ onNavigateToPanel }: DashboardProps) {
     return (
       <div className="flex items-center justify-between rounded-md bg-card border border-border/50 p-3 text-sm gap-2">
         <div className="flex-1 min-w-0">
-          {panel && onNavigateToPanel ? (
-            <button
-              onClick={() => onNavigateToPanel(panel.nombre)}
-              className="font-medium truncate hover:text-primary hover:underline text-left block max-w-full"
-              title={'Ver panel: ' + panel.nombre}
-            >
-              {cliente.nombre}
-            </button>
-          ) : (
-            <p className="font-medium truncate">{cliente.nombre}</p>
-          )}
+          <button
+            onClick={() => {
+              if (panel && onNavigateToPanel) {
+                onNavigateToPanel(panel.nombre);
+              } else {
+                onNavigate?.('clientes');
+              }
+            }}
+            className="font-medium truncate hover:text-primary hover:underline text-left block max-w-full"
+            title={panel ? 'Ver panel: ' + panel.nombre : 'Ver clientes'}
+          >
+            {cliente.nombre}
+          </button>
           <p className="text-xs text-muted-foreground truncate">{servicio?.nombre || 'Sin servicio'}</p>
         </div>
         <span className={'text-xs whitespace-nowrap ' + statusClass}>
@@ -179,23 +182,23 @@ export default function Dashboard({ onNavigateToPanel }: DashboardProps) {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div className="stat-card">
+        <button onClick={() => onNavigate?.('clientes')} className="stat-card text-left cursor-pointer hover:border-primary/30 transition-colors">
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">Clientes Activos</p>
             <Users className="h-3.5 w-3.5 text-primary" />
           </div>
           <p className="mt-1.5 text-xl font-bold">{clientesActivos}</p>
-        </div>
+        </button>
 
-        <div className="stat-card">
+        <button onClick={() => onNavigate?.('paneles')} className="stat-card text-left cursor-pointer hover:border-primary/30 transition-colors">
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">Paneles Activos</p>
             <Monitor className="h-3.5 w-3.5 text-primary" />
           </div>
           <p className="mt-1.5 text-xl font-bold">{panelesActivos}</p>
-        </div>
+        </button>
 
-        <div className="stat-card">
+        <button onClick={() => onNavigate?.('finanzas')} className="stat-card text-left cursor-pointer hover:border-primary/30 transition-colors">
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">Ganancia Neta</p>
             <TrendingUp className="h-3.5 w-3.5 text-success" />
@@ -203,7 +206,7 @@ export default function Dashboard({ onNavigateToPanel }: DashboardProps) {
           <p className={'mt-1.5 text-xl font-bold ' + (ganancia >= 0 ? 'text-success' : 'text-destructive')}>
             ${ganancia.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </p>
-        </div>
+        </button>
 
         <div className="stat-card">
           <div className="flex items-center justify-between">

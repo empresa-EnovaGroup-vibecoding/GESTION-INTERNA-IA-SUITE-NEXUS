@@ -23,7 +23,7 @@ function AppContent() {
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'dashboard': return <Dashboard onNavigateToPanel={(search) => navigateWithSearch('paneles', search)} />;
+      case 'dashboard': return <Dashboard onNavigate={setCurrentPage} onNavigateToPanel={(search) => navigateWithSearch('paneles', search)} />;
       case 'calendario': return <CalendarioPage />;
       case 'paneles': return <PanelesPage initialSearch={pendingSearch} onSearchConsumed={() => setPendingSearch('')} />;
       case 'clientes': return <ClientesPage />;
