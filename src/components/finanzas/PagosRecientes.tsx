@@ -8,9 +8,13 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 
 interface Props {
   selectedDate: Date;
@@ -18,7 +22,7 @@ interface Props {
 }
 
 export default function PagosRecientes({ selectedDate, selectedProyecto }: Props) {
-  const { pagos, clientes, proyectos, deletePago } = useData();
+  const { pagos, clientes, proyectos, deletePago, updatePago } = useData();
   const [comprobanteUrl, setComprobanteUrl] = useState<string | null>(null);
   const [searchPago, setSearchPago] = useState('');
 
@@ -106,11 +110,24 @@ export default function PagosRecientes({ selectedDate, selectedProyecto }: Props
                   <Badge variant="secondary" className="text-[10px]">{p.metodo}</Badge>
                 </TableCell>
                 <TableCell>
-                  {getProyectoNombre(p.proyectoId) ? (
-                    <Badge variant="outline" className="text-[10px]">{getProyectoNombre(p.proyectoId)}</Badge>
-                  ) : (
-                    <span className="text-xs text-muted-foreground/40">-</span>
-                  )}
+                  <Select
+                    value={p.proyectoId || 'none'}
+                    onValueChange={v => {
+                      const newProyectoId = v === 'none' ? undefined : v;
+                      updatePago({ ...p, proyectoId: newProyectoId });
+                      toast.success(newProyectoId ? 'Proyecto asignado' : 'Proyecto removido');
+                    }}
+                  >
+                    <SelectTrigger className="h-7 w-[120px] text-[10px] border-dashed">
+                      <SelectValue placeholder="Sin proyecto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin proyecto</SelectItem>
+                      {proyectos.map(pr => (
+                        <SelectItem key={pr.id} value={pr.id}>{pr.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </TableCell>
                 <TableCell>
                   {p.referencia ? (
