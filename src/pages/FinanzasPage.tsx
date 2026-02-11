@@ -3,7 +3,7 @@ import { useData } from '@/contexts/DataContext';
 import { format as fmtDate } from 'date-fns';
 import { format, isSameMonth, addMonths, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, MessageCircle, Send } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MessageCircle, Send, Scissors, ArrowLeftRight, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -181,9 +181,6 @@ export default function FinanzasPage() {
               </SelectContent>
             </Select>
           )}
-          <ReporteSemanalDialog />
-          <CorteSemanalDialog />
-          <NuevoCorteDialog />
           <RegistrarPagoDialog />
         </div>
       </div>
@@ -193,10 +190,8 @@ export default function FinanzasPage() {
         <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="resumen">Resumen</TabsTrigger>
           <TabsTrigger value="pagos">Pagos</TabsTrigger>
-          <TabsTrigger value="ingresos-gastos">Ingresos y Gastos</TabsTrigger>
-          <TabsTrigger value="cortes">Cortes P2P</TabsTrigger>
-          <TabsTrigger value="cortes-semanales">Cortes Semanales</TabsTrigger>
-          <TabsTrigger value="metas">Metas y Analisis</TabsTrigger>
+          <TabsTrigger value="cortes-reportes">Cortes y Reportes</TabsTrigger>
+          <TabsTrigger value="analisis">Analisis</TabsTrigger>
         </TabsList>
 
         {/* Tab 1: Resumen */}
@@ -283,25 +278,62 @@ export default function FinanzasPage() {
           <PagosRecientes selectedDate={selectedDate} selectedProyecto={selectedProyecto} />
         </TabsContent>
 
-        {/* Tab 3: Ingresos y Gastos */}
-        <TabsContent value="ingresos-gastos" className="space-y-6 mt-4">
+        {/* Tab 3: Cortes y Reportes */}
+        <TabsContent value="cortes-reportes" className="space-y-8 mt-4">
+          {/* Seccion 1: Liquidacion Duenos (EXTERNO - para enviar a duenos) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <Scissors className="h-4 w-4 text-primary" />
+                  Liquidacion Duenos
+                </h3>
+                <p className="text-xs text-muted-foreground">Corte semanal para enviar a los duenos de cuenta por WhatsApp</p>
+              </div>
+              <CorteSemanalDialog />
+            </div>
+            <CorteSemanalHistorial selectedDate={selectedDate} />
+          </div>
+
+          <div className="border-t border-border" />
+
+          {/* Seccion 2: Conversiones P2P */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <ArrowLeftRight className="h-4 w-4 text-primary" />
+                  Conversiones P2P
+                </h3>
+                <p className="text-xs text-muted-foreground">Registro de conversiones de moneda local (MXN/COP) a USDT</p>
+              </div>
+              <NuevoCorteDialog />
+            </div>
+            <CortesHistorial selectedDate={selectedDate} />
+          </div>
+
+          <div className="border-t border-border" />
+
+          {/* Seccion 3: Mi Reporte (INTERNO - para ti) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary" />
+                  Mi Reporte
+                </h3>
+                <p className="text-xs text-muted-foreground">Tu resumen interno: clientes nuevos, renovaciones, vencimientos, ganancia</p>
+              </div>
+              <ReporteSemanalDialog />
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Tab 4: Analisis */}
+        <TabsContent value="analisis" className="space-y-6 mt-4">
           <TablaIngresos selectedDate={selectedDate} />
           <TablaGastos panelesActivos={panelesActivos} totalGastos={totalGastos} />
           <TablaRentabilidad />
-        </TabsContent>
-
-        {/* Tab 4: Cortes P2P */}
-        <TabsContent value="cortes" className="space-y-6 mt-4">
-          <CortesHistorial selectedDate={selectedDate} />
-        </TabsContent>
-
-        {/* Tab 5: Cortes Semanales */}
-        <TabsContent value="cortes-semanales" className="space-y-6 mt-4">
-          <CorteSemanalHistorial selectedDate={selectedDate} />
-        </TabsContent>
-
-        {/* Tab 6: Metas y Analisis */}
-        <TabsContent value="metas" className="space-y-6 mt-4">
           <MetasPorServicio mesKey={fmtDate(selectedDate, 'yyyy-MM')} selectedDate={selectedDate} />
           <MetaHistorial currentMesKey={fmtDate(selectedDate, 'yyyy-MM')} />
           <ResumenPorPais selectedDate={selectedDate} />
