@@ -19,7 +19,7 @@ interface DashboardProps {
 
 export default function Dashboard({ onNavigate, onNavigateToPanel }: DashboardProps) {
   const {
-    clientes, paneles, suscripciones, pagos, cortes,
+    clientes, paneles, suscripciones, pagos, cortes, servicios,
     getPanelById, getServicioById, updateSuscripcion,
   } = useData();
 
@@ -79,6 +79,19 @@ export default function Dashboard({ onNavigate, onNavigateToPanel }: DashboardPr
     const usdDirectos = pagosDirectosUSD.reduce((sum, p) => sum + p.monto, 0);
     return Math.round((usdtFromCortes + usdDirectos - totalGastos) * 100) / 100;
   }, [paneles, cortes, pagos]);
+
+  // --- Personas por servicio ---
+  const personasPorServicio = useMemo(() => {
+    const map: Record<string, { nombre: string; count: number }> = {};
+    for (const sub of suscripciones) {
+      if (sub.estado !== 'activa') continue;
+      const servicio = getServicioById(sub.servicioId);
+      const nombre = servicio?.nombre || 'Otro';
+      if (!map[sub.servicioId]) map[sub.servicioId] = { nombre, count: 0 };
+      map[sub.servicioId].count++;
+    }
+    return Object.values(map).sort((a, b) => b.count - a.count);
+  }, [suscripciones, getServicioById]);
 
   // --- Paneles por vencer ---
   const panelesUrgentes = useMemo(() => {
@@ -232,6 +245,24 @@ export default function Dashboard({ onNavigate, onNavigateToPanel }: DashboardPr
           </p>
         </div>
       </div>
+
+      {/* Personas por servicio */}
+      {personasPorServicio.length > 0 && (
+        <button
+          onClick={() => onNavigate?.('servicios')}
+          className="w-full rounded-lg border border-border bg-card p-4 text-left hover:border-primary/30 transition-colors"
+        >
+          <p className="text-xs text-muted-foreground mb-2">Suscriptores activos por servicio</p>
+          <div className="flex flex-wrap gap-2">
+            {personasPorServicio.map(s => (
+              <span key={s.nombre} className="inline-flex items-center gap-1.5 rounded-full bg-muted/50 px-3 py-1 text-xs">
+                <span className="font-medium">{s.nombre}</span>
+                <span className="text-primary font-bold">{s.count}</span>
+              </span>
+            ))}
+          </div>
+        </button>
+      )}
 
       {/* Paneles por vencer - desplegable compacto */}
       {panelesUrgentes.length > 0 && (
