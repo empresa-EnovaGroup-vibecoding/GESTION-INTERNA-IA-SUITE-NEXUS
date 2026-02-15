@@ -3,13 +3,14 @@ import { Panel, Cliente, Servicio, Suscripcion, Pago, Corte, Proyecto, CorteSema
 import { addDays, format, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 import { supabaseExternal } from '@/lib/supabaseExternal';
 import { PanelSchema, ClienteSchema, ServicioSchema, SuscripcionSchema, PagoSchema, CorteSchema, validateInput } from '@/lib/validationSchemas';
+import { toast } from 'sonner';
 
 interface DataContextType {
   paneles: Panel[];
   clientes: Cliente[];
   servicios: Servicio[];
   suscripciones: Suscripcion[];
-  
+
   pagos: Pago[];
   cortes: Corte[];
   proyectos: Proyecto[];
@@ -59,6 +60,20 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 function generateId(): string {
   return crypto.randomUUID();
+}
+
+// Safe Supabase operation - logs error and shows toast if it fails
+async function persist(promise: Promise<{ error?: { message: string } | null }>, action: string) {
+  try {
+    const result = await promise;
+    if (result?.error) {
+      console.error('[DB]', action, result.error.message);
+      toast.error('Error al ' + action);
+    }
+  } catch (err) {
+    console.error('[DB]', action, err);
+    toast.error('Error al ' + action);
+  }
 }
 
 // === Supabase row mappers ===
@@ -212,7 +227,6 @@ function rowToCorte(r: Record<string, unknown>): Corte {
 
 
 
-
 // === localStorage migration ===
 async function migrateLocalStorageToSupabase() {
   const tables = [
@@ -222,7 +236,7 @@ async function migrateLocalStorageToSupabase() {
     { key: 'suscripciones', table: 'suscripciones', toRow: suscripcionToRow },
     { key: 'pagos', table: 'pagos', toRow: pagoToRow },
     { key: 'cortes', table: 'cortes', toRow: corteToRow },
-    
+
   ];
 
   for (const { key, table, toRow } of tables) {
@@ -255,7 +269,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [suscripciones, setSuscripciones] = useState<Suscripcion[]>([]);
-  
+
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [cortes, setCortes] = useState<Corte[]>([]);
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
@@ -269,30 +283,34 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     initialized.current = true;
 
     async function loadData() {
-      // First, migrate localStorage data if any
-      await migrateLocalStorageToSupabase();
+      try {
+        await migrateLocalStorageToSupabase();
 
-      // Then fetch everything from Supabase
-      const [pRes, cRes, sRes, subRes, pgRes, coRes, prRes, csRes] = await Promise.all([
-        supabaseExternal.from('paneles').select('*'),
-        supabaseExternal.from('clientes').select('*'),
-        supabaseExternal.from('servicios').select('*'),
-        supabaseExternal.from('suscripciones').select('*'),
-        supabaseExternal.from('pagos').select('*'),
-        supabaseExternal.from('cortes').select('*'),
-        supabaseExternal.from('proyectos').select('*'),
-        supabaseExternal.from('cortes_semanales').select('*'),
-      ]);
+        const [pRes, cRes, sRes, subRes, pgRes, coRes, prRes, csRes] = await Promise.all([
+          supabaseExternal.from('paneles').select('*'),
+          supabaseExternal.from('clientes').select('*'),
+          supabaseExternal.from('servicios').select('*'),
+          supabaseExternal.from('suscripciones').select('*'),
+          supabaseExternal.from('pagos').select('*'),
+          supabaseExternal.from('cortes').select('*'),
+          supabaseExternal.from('proyectos').select('*'),
+          supabaseExternal.from('cortes_semanales').select('*'),
+        ]);
 
-      setPaneles((pRes.data || []).map(rowToPanel));
-      setClientes((cRes.data || []).map(rowToCliente));
-      setServicios((sRes.data || []).map(rowToServicio));
-      setSuscripciones((subRes.data || []).map(rowToSuscripcion));
-      setPagos((pgRes.data || []).map(rowToPago));
-      setCortes((coRes.data || []).map(rowToCorte));
-      setProyectos((prRes.data || []).map(rowToProyecto));
-      setCortesSemanales((csRes.data || []).map(rowToCorteSemanal));
-      setLoading(false);
+        setPaneles((pRes.data || []).map(rowToPanel));
+        setClientes((cRes.data || []).map(rowToCliente));
+        setServicios((sRes.data || []).map(rowToServicio));
+        setSuscripciones((subRes.data || []).map(rowToSuscripcion));
+        setPagos((pgRes.data || []).map(rowToPago));
+        setCortes((coRes.data || []).map(rowToCorte));
+        setProyectos((prRes.data || []).map(rowToProyecto));
+        setCortesSemanales((csRes.data || []).map(rowToCorteSemanal));
+      } catch (err) {
+        console.error('Error loading data:', err);
+        toast.error('Error al cargar datos. Revisa tu conexion.');
+      } finally {
+        setLoading(false);
+      }
     }
 
     loadData();
@@ -308,20 +326,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       credencialFechaInicio: panel.credencialFechaInicio || now, historialCredenciales: [],
     };
     setPaneles(prev => [...prev, newPanel]);
-    await supabaseExternal.from('paneles').insert(panelToRow(newPanel));
+    await persist(supabaseExternal.from('paneles').insert(panelToRow(newPanel)), 'guardar panel');
   }, []);
 
   const updatePanel = useCallback(async (panel: Panel) => {
     setPaneles(prev => prev.map(p => p.id === panel.id ? panel : p));
-    await supabaseExternal.from('paneles').update(panelToRow(panel)).eq('id', panel.id);
+    await persist(supabaseExternal.from('paneles').update(panelToRow(panel)).eq('id', panel.id), 'actualizar panel');
   }, []);
 
   const deletePanel = useCallback(async (id: string) => {
     setPaneles(prev => prev.filter(p => p.id !== id));
     setSuscripciones(prev => prev.filter(s => s.panelId !== id));
     await Promise.all([
-      supabaseExternal.from('paneles').delete().eq('id', id),
-      supabaseExternal.from('suscripciones').delete().eq('panel_id', id),
+      persist(supabaseExternal.from('paneles').delete().eq('id', id), 'eliminar panel'),
+      persist(supabaseExternal.from('suscripciones').delete().eq('panel_id', id), 'eliminar suscripciones del panel'),
     ]);
   }, []);
 
@@ -342,7 +360,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       return updatedPanel;
     }));
     if (updatedPanel) {
-      await supabaseExternal.from('paneles').update(panelToRow(updatedPanel)).eq('id', panelId);
+      await persist(supabaseExternal.from('paneles').update(panelToRow(updatedPanel)).eq('id', panelId), 'rotar credenciales');
     }
   }, []);
 
@@ -351,7 +369,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     validateInput(ClienteSchema, cliente);
     const newCliente: Cliente = { ...cliente, id: generateId() };
     setClientes(prev => [...prev, newCliente]);
-    await supabaseExternal.from('clientes').insert(clienteToRow(newCliente));
+    await persist(supabaseExternal.from('clientes').insert(clienteToRow(newCliente)), 'guardar cliente');
   }, []);
 
   const addClienteConSuscripciones = useCallback(async (
@@ -361,7 +379,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const clienteId = generateId();
     const newCliente: Cliente = { ...cliente, id: clienteId };
     setClientes(prev => [...prev, newCliente]);
-    await supabaseExternal.from('clientes').insert(clienteToRow(newCliente));
+    await persist(supabaseExternal.from('clientes').insert(clienteToRow(newCliente)), 'guardar cliente');
 
     if (subsData.length > 0) {
       const newSubs: Suscripcion[] = subsData.map(s => ({
@@ -375,8 +393,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         return count > 0 ? { ...p, cuposUsados: p.cuposUsados + count } : p;
       }));
 
-      await supabaseExternal.from('suscripciones').insert(newSubs.map(suscripcionToRow));
-      // Update panel cupos in Supabase
+      await persist(supabaseExternal.from('suscripciones').insert(newSubs.map(suscripcionToRow)), 'guardar suscripciones');
       const panelUpdates = new Map<string, number>();
       newSubs.forEach(s => {
         if (s.panelId) panelUpdates.set(s.panelId, (panelUpdates.get(s.panelId) || 0) + 1);
@@ -384,7 +401,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       for (const [pid, count] of panelUpdates) {
         const panel = paneles.find(p => p.id === pid);
         if (panel) {
-          await supabaseExternal.from('paneles').update({ cupos_usados: panel.cuposUsados + count }).eq('id', pid);
+          await persist(supabaseExternal.from('paneles').update({ cupos_usados: panel.cuposUsados + count }).eq('id', pid), 'actualizar cupos');
         }
       }
     }
@@ -392,7 +409,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const updateCliente = useCallback(async (cliente: Cliente) => {
     setClientes(prev => prev.map(c => c.id === cliente.id ? cliente : c));
-    await supabaseExternal.from('clientes').update(clienteToRow(cliente)).eq('id', cliente.id);
+    await persist(supabaseExternal.from('clientes').update(clienteToRow(cliente)).eq('id', cliente.id), 'actualizar cliente');
   }, []);
 
   const deleteCliente = useCallback(async (id: string) => {
@@ -406,8 +423,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
     setClientes(prev => prev.filter(c => c.id !== id));
     await Promise.all([
-      supabaseExternal.from('suscripciones').delete().eq('cliente_id', id),
-      supabaseExternal.from('clientes').delete().eq('id', id),
+      persist(supabaseExternal.from('suscripciones').delete().eq('cliente_id', id), 'eliminar suscripciones'),
+      persist(supabaseExternal.from('clientes').delete().eq('id', id), 'eliminar cliente'),
     ]);
   }, []);
 
@@ -416,12 +433,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     validateInput(ServicioSchema, servicio);
     const newServicio: Servicio = { ...servicio, id: generateId() };
     setServicios(prev => [...prev, newServicio]);
-    await supabaseExternal.from('servicios').insert(servicioToRow(newServicio));
+    await persist(supabaseExternal.from('servicios').insert(servicioToRow(newServicio)), 'guardar servicio');
   }, []);
 
   const updateServicio = useCallback(async (servicio: Servicio) => {
     setServicios(prev => prev.map(s => s.id === servicio.id ? servicio : s));
-    await supabaseExternal.from('servicios').update(servicioToRow(servicio)).eq('id', servicio.id);
+    await persist(supabaseExternal.from('servicios').update(servicioToRow(servicio)).eq('id', servicio.id), 'actualizar servicio');
   }, []);
 
   const deleteServicio = useCallback(async (id: string) => {
@@ -435,8 +452,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       return prev.filter(s => s.servicioId !== id);
     });
     await Promise.all([
-      supabaseExternal.from('suscripciones').delete().eq('servicio_id', id),
-      supabaseExternal.from('servicios').delete().eq('id', id),
+      persist(supabaseExternal.from('suscripciones').delete().eq('servicio_id', id), 'eliminar suscripciones'),
+      persist(supabaseExternal.from('servicios').delete().eq('id', id), 'eliminar servicio'),
     ]);
   }, []);
 
@@ -452,9 +469,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setPaneles(prev => prev.map(p =>
         p.id === suscripcion.panelId ? { ...p, cuposUsados: p.cuposUsados + 1 } : p
       ));
-      await supabaseExternal.from('paneles').update({ cupos_usados: (paneles.find(p => p.id === suscripcion.panelId)?.cuposUsados || 0) + 1 }).eq('id', suscripcion.panelId);
+      await persist(supabaseExternal.from('paneles').update({ cupos_usados: (paneles.find(p => p.id === suscripcion.panelId)?.cuposUsados || 0) + 1 }).eq('id', suscripcion.panelId), 'actualizar cupos');
     }
-    await supabaseExternal.from('suscripciones').insert(suscripcionToRow(newSub));
+    await persist(supabaseExternal.from('suscripciones').insert(suscripcionToRow(newSub)), 'guardar suscripcion');
   }, [paneles]);
 
   const updateSuscripcion = useCallback(async (suscripcion: Suscripcion) => {
@@ -469,7 +486,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
       return prev.map(s => s.id === suscripcion.id ? suscripcion : s);
     });
-    await supabaseExternal.from('suscripciones').update(suscripcionToRow(suscripcion)).eq('id', suscripcion.id);
+    await persist(supabaseExternal.from('suscripciones').update(suscripcionToRow(suscripcion)).eq('id', suscripcion.id), 'actualizar suscripcion');
   }, []);
 
   const deleteSuscripcion = useCallback(async (id: string) => {
@@ -482,7 +499,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
       return prev.filter(s => s.id !== id);
     });
-    await supabaseExternal.from('suscripciones').delete().eq('id', id);
+    await persist(supabaseExternal.from('suscripciones').delete().eq('id', id), 'eliminar suscripcion');
   }, []);
 
   const getSuscripcionesByCliente = useCallback((clienteId: string) =>
@@ -495,17 +512,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     validateInput(PagoSchema, pago);
     const newPago: Pago = { ...pago, id: generateId() };
     setPagos(prev => [...prev, newPago]);
-    await supabaseExternal.from('pagos').insert(pagoToRow(newPago));
+    await persist(supabaseExternal.from('pagos').insert(pagoToRow(newPago)), 'guardar pago');
   }, []);
 
   const updatePago = useCallback(async (pago: Pago) => {
     setPagos(prev => prev.map(p => p.id === pago.id ? pago : p));
-    await supabaseExternal.from('pagos').update(pagoToRow(pago)).eq('id', pago.id);
+    await persist(supabaseExternal.from('pagos').update(pagoToRow(pago)).eq('id', pago.id), 'actualizar pago');
   }, []);
 
   const deletePago = useCallback(async (id: string) => {
     setPagos(prev => prev.filter(p => p.id !== id));
-    await supabaseExternal.from('pagos').delete().eq('id', id);
+    await persist(supabaseExternal.from('pagos').delete().eq('id', id), 'eliminar pago');
   }, []);
 
   // --- Cortes ---
@@ -530,7 +547,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     const newCorte: Corte = { ...corteData, id: corteId, pagosIds: eligiblePagoIds };
     setCortes(prev => [...prev, newCorte]);
-    await supabaseExternal.from('cortes').insert(corteToRow(newCorte));
+    await persist(supabaseExternal.from('cortes').insert(corteToRow(newCorte)), 'guardar corte');
 
     if (corteData.tasaBinance > 0 && eligiblePagoIds.length > 0) {
       const updatedPagos: Pago[] = [];
@@ -543,9 +560,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         updatedPagos.push(updated);
         return updated;
       }));
-      // Batch update pagos in Supabase
       for (const up of updatedPagos) {
-        await supabaseExternal.from('pagos').update(pagoToRow(up)).eq('id', up.id);
+        await persist(supabaseExternal.from('pagos').update(pagoToRow(up)).eq('id', up.id), 'actualizar pago del corte');
       }
     }
   }, [pagos, clientes]);
@@ -564,29 +580,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setCortes(prev => prev.filter(c => c.id !== id));
 
     for (const rp of revertedPagos) {
-      await supabaseExternal.from('pagos').update(pagoToRow(rp)).eq('id', rp.id);
+      await persist(supabaseExternal.from('pagos').update(pagoToRow(rp)).eq('id', rp.id), 'revertir pago');
     }
-    await supabaseExternal.from('cortes').delete().eq('id', id);
+    await persist(supabaseExternal.from('cortes').delete().eq('id', id), 'eliminar corte');
   }, []);
 
   // --- Proyectos ---
   const addProyecto = useCallback(async (proyecto: Omit<Proyecto, 'id'>) => {
     const newProyecto: Proyecto = { ...proyecto, id: generateId() };
     setProyectos(prev => [...prev, newProyecto]);
-    await supabaseExternal.from('proyectos').insert(proyectoToRow(newProyecto));
+    await persist(supabaseExternal.from('proyectos').insert(proyectoToRow(newProyecto)), 'guardar proyecto');
   }, []);
 
   const updateProyecto = useCallback(async (proyecto: Proyecto) => {
     setProyectos(prev => prev.map(p => p.id === proyecto.id ? proyecto : p));
-    await supabaseExternal.from('proyectos').update(proyectoToRow(proyecto)).eq('id', proyecto.id);
+    await persist(supabaseExternal.from('proyectos').update(proyectoToRow(proyecto)).eq('id', proyecto.id), 'actualizar proyecto');
   }, []);
 
   const deleteProyecto = useCallback(async (id: string) => {
     setProyectos(prev => prev.filter(p => p.id !== id));
     setPagos(prev => prev.map(p => p.proyectoId === id ? { ...p, proyectoId: undefined } : p));
     await Promise.all([
-      supabaseExternal.from('proyectos').delete().eq('id', id),
-      supabaseExternal.from('pagos').update({ proyecto_id: null }).eq('proyecto_id', id),
+      persist(supabaseExternal.from('proyectos').delete().eq('id', id), 'eliminar proyecto'),
+      persist(supabaseExternal.from('pagos').update({ proyecto_id: null }).eq('proyecto_id', id), 'desvincular pagos'),
     ]);
   }, []);
 
@@ -596,12 +612,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addCorteSemanal = useCallback(async (corte: Omit<CorteSemanal, 'id'>) => {
     const newCorte: CorteSemanal = { ...corte, id: generateId() };
     setCortesSemanales(prev => [...prev, newCorte]);
-    await supabaseExternal.from('cortes_semanales').insert(corteSemanalToRow(newCorte));
+    await persist(supabaseExternal.from('cortes_semanales').insert(corteSemanalToRow(newCorte)), 'guardar corte semanal');
   }, []);
 
   const deleteCorteSemanal = useCallback(async (id: string) => {
     setCortesSemanales(prev => prev.filter(c => c.id !== id));
-    await supabaseExternal.from('cortes_semanales').delete().eq('id', id);
+    await persist(supabaseExternal.from('cortes_semanales').delete().eq('id', id), 'eliminar corte semanal');
   }, []);
 
   // --- Helpers ---
