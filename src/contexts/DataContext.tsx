@@ -71,37 +71,37 @@ function panelToRow(p: Panel) {
     servicio_asociado: p.servicioAsociado, estado: p.estado,
     proveedor: p.proveedor || null, costo_mensual: p.costoMensual,
     credencial_fecha_inicio: p.credencialFechaInicio,
-    historial_credenciales: p.historialCredenciales as any,
+    historial_credenciales: p.historialCredenciales as unknown,
     vpn: p.vpn || null,
     notas: p.notas ?? null,
   };
 }
-function rowToPanel(r: any): Panel {
+function rowToPanel(r: Record<string, unknown>): Panel {
   return {
-    id: r.id, nombre: r.nombre, email: r.email, password: r.password,
-    fechaCompra: r.fecha_compra, fechaExpiracion: r.fecha_expiracion,
-    capacidadTotal: r.capacidad_total, cuposUsados: r.cupos_usados,
-    servicioAsociado: r.servicio_asociado, estado: r.estado,
-    proveedor: r.proveedor || '', costoMensual: r.costo_mensual,
-    credencialFechaInicio: r.credencial_fecha_inicio,
-    historialCredenciales: r.historial_credenciales || [],
-    vpn: r.vpn ?? undefined,
-    notas: r.notas ?? undefined,
+    id: r.id as string, nombre: r.nombre as string, email: r.email as string, password: r.password as string,
+    fechaCompra: r.fecha_compra as string, fechaExpiracion: r.fecha_expiracion as string,
+    capacidadTotal: Number(r.capacidad_total), cuposUsados: Number(r.cupos_usados),
+    servicioAsociado: r.servicio_asociado as string, estado: r.estado as Panel['estado'],
+    proveedor: (r.proveedor as string) || '', costoMensual: Number(r.costo_mensual),
+    credencialFechaInicio: r.credencial_fecha_inicio as string,
+    historialCredenciales: (r.historial_credenciales as Panel['historialCredenciales']) || [],
+    vpn: (r.vpn as string) ?? undefined,
+    notas: (r.notas as string) ?? undefined,
   };
 }
 
 function clienteToRow(c: Cliente) {
   return { id: c.id, nombre: c.nombre, whatsapp: c.whatsapp, pais: c.pais || null, notas: c.notas || null };
 }
-function rowToCliente(r: any): Cliente {
-  return { id: r.id, nombre: r.nombre, whatsapp: r.whatsapp, pais: r.pais || undefined, notas: r.notas || undefined };
+function rowToCliente(r: Record<string, unknown>): Cliente {
+  return { id: r.id as string, nombre: r.nombre as string, whatsapp: r.whatsapp as string, pais: (r.pais as Cliente['pais']) || undefined, notas: (r.notas as string) || undefined };
 }
 
 function servicioToRow(s: Servicio) {
   return { id: s.id, nombre: s.nombre, precio_base: s.precioBase, precio_ref_mxn: s.precioRefMXN ?? null, precio_ref_cop: s.precioRefCOP ?? null };
 }
-function rowToServicio(r: any): Servicio {
-  return { id: r.id, nombre: r.nombre, precioBase: r.precio_base, precioRefMXN: r.precio_ref_mxn ?? undefined, precioRefCOP: r.precio_ref_cop ?? undefined };
+function rowToServicio(r: Record<string, unknown>): Servicio {
+  return { id: r.id as string, nombre: r.nombre as string, precioBase: Number(r.precio_base), precioRefMXN: r.precio_ref_mxn != null ? Number(r.precio_ref_mxn) : undefined, precioRefCOP: r.precio_ref_cop != null ? Number(r.precio_ref_cop) : undefined };
 }
 
 function suscripcionToRow(s: Suscripcion) {
@@ -115,15 +115,15 @@ function suscripcionToRow(s: Suscripcion) {
     notas: s.notas ?? null,
   };
 }
-function rowToSuscripcion(r: any): Suscripcion {
+function rowToSuscripcion(r: Record<string, unknown>): Suscripcion {
   return {
-    id: r.id, clienteId: r.cliente_id, servicioId: r.servicio_id,
-    panelId: r.panel_id || undefined, estado: r.estado,
-    fechaInicio: r.fecha_inicio, fechaVencimiento: r.fecha_vencimiento,
-    precioCobrado: r.precio_cobrado,
-    precioLocal: r.precio_local ?? undefined, monedaLocal: r.moneda_local ?? undefined,
-    credencialEmail: r.credencial_email ?? undefined, credencialPassword: r.credencial_password ?? undefined,
-    notas: r.notas ?? undefined,
+    id: r.id as string, clienteId: r.cliente_id as string, servicioId: r.servicio_id as string,
+    panelId: (r.panel_id as string) || undefined, estado: r.estado as Suscripcion['estado'],
+    fechaInicio: r.fecha_inicio as string, fechaVencimiento: r.fecha_vencimiento as string,
+    precioCobrado: Number(r.precio_cobrado),
+    precioLocal: r.precio_local != null ? Number(r.precio_local) : undefined, monedaLocal: (r.moneda_local as Suscripcion['monedaLocal']) ?? undefined,
+    credencialEmail: (r.credencial_email as string) ?? undefined, credencialPassword: (r.credencial_password as string) ?? undefined,
+    notas: (r.notas as string) ?? undefined,
   };
 }
 
@@ -139,16 +139,16 @@ function pagoToRow(p: Pago) {
     proyecto_id: p.proyectoId ?? null,
   };
 }
-function rowToPago(r: any): Pago {
+function rowToPago(r: Record<string, unknown>): Pago {
   return {
-    id: r.id, clienteId: r.cliente_id, monto: r.monto,
-    montoOriginal: r.monto_original ?? undefined, moneda: r.moneda ?? undefined,
-    tasaCambio: r.tasa_cambio ?? undefined, metodo: r.metodo,
-    fecha: r.fecha, corteId: r.corte_id ?? undefined,
-    referencia: r.referencia ?? undefined,
-    comprobanteUrl: r.comprobante_url ?? undefined,
-    datosExtraidos: r.datos_extraidos ?? undefined,
-    proyectoId: r.proyecto_id ?? undefined,
+    id: r.id as string, clienteId: r.cliente_id as string, monto: Number(r.monto),
+    montoOriginal: r.monto_original != null ? Number(r.monto_original) : undefined, moneda: (r.moneda as Pago['moneda']) ?? undefined,
+    tasaCambio: r.tasa_cambio != null ? Number(r.tasa_cambio) : undefined, metodo: r.metodo as Pago['metodo'],
+    fecha: r.fecha as string, corteId: (r.corte_id as string) ?? undefined,
+    referencia: (r.referencia as string) ?? undefined,
+    comprobanteUrl: (r.comprobante_url as string) ?? undefined,
+    datosExtraidos: (r.datos_extraidos as Record<string, unknown>) ?? undefined,
+    proyectoId: (r.proyecto_id as string) ?? undefined,
   };
 }
 
@@ -197,16 +197,16 @@ function corteToRow(c: Corte) {
     total_recaudado: c.totalRecaudado, comision_porcentaje: c.comisionPorcentaje,
     total_despues_comision: c.totalDespuesComision, tasa_binance: c.tasaBinance,
     usdt_calculado: c.usdtCalculado, usdt_recibido_real: c.usdtRecibidoReal,
-    notas: c.notas ?? null, pagos_ids: c.pagosIds as any,
+    notas: c.notas ?? null, pagos_ids: c.pagosIds as unknown,
   };
 }
-function rowToCorte(r: any): Corte {
+function rowToCorte(r: Record<string, unknown>): Corte {
   return {
-    id: r.id, fecha: r.fecha, pais: r.pais, moneda: r.moneda,
-    totalRecaudado: r.total_recaudado, comisionPorcentaje: r.comision_porcentaje,
-    totalDespuesComision: r.total_despues_comision, tasaBinance: r.tasa_binance,
-    usdtCalculado: r.usdt_calculado, usdtRecibidoReal: r.usdt_recibido_real,
-    notas: r.notas ?? undefined, pagosIds: r.pagos_ids || [],
+    id: r.id as string, fecha: r.fecha as string, pais: r.pais as Corte['pais'], moneda: r.moneda as Corte['moneda'],
+    totalRecaudado: Number(r.total_recaudado), comisionPorcentaje: Number(r.comision_porcentaje),
+    totalDespuesComision: Number(r.total_despues_comision), tasaBinance: Number(r.tasa_binance),
+    usdtCalculado: Number(r.usdt_calculado), usdtRecibidoReal: Number(r.usdt_recibido_real),
+    notas: (r.notas as string) ?? undefined, pagosIds: (r.pagos_ids as string[]) || [],
   };
 }
 

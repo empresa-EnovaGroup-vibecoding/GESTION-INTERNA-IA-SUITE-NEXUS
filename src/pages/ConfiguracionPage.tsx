@@ -100,8 +100,8 @@ export default function ConfiguracionPage() {
       setLogoUrl(url);
       await updateConfig('empresa_logo_url', url);
       toast.success('Logo subido correctamente');
-    } catch (err: any) {
-      toast.error('Error al subir logo: ' + err.message);
+    } catch (err: unknown) {
+      toast.error('Error al subir logo: ' + (err instanceof Error ? err.message : 'Error desconocido'));
     } finally {
       setUploading(false);
     }
