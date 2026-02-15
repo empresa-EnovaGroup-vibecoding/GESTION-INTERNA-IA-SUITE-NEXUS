@@ -184,6 +184,7 @@ export default function PanelesPage({ initialSearch = '', onSearchConsumed }: Pa
               searchQuery={search}
               onEdit={handleEdit}
               onRenovar={(p) => {
+                if (!p.fechaExpiracion) return;
                 const newDate = new Date(p.fechaExpiracion);
                 newDate.setDate(newDate.getDate() + 30);
                 updatePanel({ ...p, fechaExpiracion: newDate.toISOString().split('T')[0] });

@@ -161,6 +161,7 @@ export default function RegistrarPagoDialog() {
   };
 
   const clearImage = () => {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImagePreview(null);
     setImageFile(null);
     setAiData(null);

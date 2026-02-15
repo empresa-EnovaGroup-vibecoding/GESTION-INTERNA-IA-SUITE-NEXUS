@@ -236,7 +236,7 @@ async function migrateLocalStorageToSupabase() {
       const { count } = await supabaseExternal.from(table).select('id', { count: 'exact', head: true });
       if (count && count > 0) continue; // skip if data exists
 
-      const rows = items.map((item: any) => toRow(item));
+      const rows = items.map((item: Record<string, unknown>) => toRow(item as never));
       const { error } = await supabaseExternal.from(table).upsert(rows, { onConflict: 'id' });
       if (!error) {
         localStorage.removeItem(key);
