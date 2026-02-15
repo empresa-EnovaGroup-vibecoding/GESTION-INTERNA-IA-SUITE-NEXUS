@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Panel, Cliente, Suscripcion } from '@/types';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -39,7 +39,7 @@ interface PanelCardProps {
   onRenovar?: (panel: Panel) => void;
 }
 
-export default function PanelCard({ panel, clientesAsignados = [], searchQuery = '', onEdit, onRenovar }: PanelCardProps) {
+const PanelCard = memo(function PanelCard({ panel, clientesAsignados = [], searchQuery = '', onEdit, onRenovar }: PanelCardProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showHistorial, setShowHistorial] = useState(false);
@@ -264,7 +264,9 @@ export default function PanelCard({ panel, clientesAsignados = [], searchQuery =
       </div>
     </div>
   );
-}
+});
+
+export default PanelCard;
 
 function CredencialHistorialEntry({ entry, index }: { entry: Panel['historialCredenciales'][0]; index: number }) {
   const [showPw, setShowPw] = useState(false);

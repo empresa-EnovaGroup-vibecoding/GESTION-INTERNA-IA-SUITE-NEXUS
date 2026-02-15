@@ -26,33 +26,34 @@ export default function Dashboard({ onNavigate, onNavigateToPanel }: DashboardPr
   const [showPaneles, setShowPaneles] = useState(false);
   const [expandedServicio, setExpandedServicio] = useState<string | null>(null);
 
-  const today = startOfDay(new Date());
-  const in7Days = addDays(today, 7);
+  // Stable date ref (doesn't change within same render cycle)
+  const today = useMemo(() => startOfDay(new Date()), []);
 
   const getCliente = (clienteId: string) => clientes.find(c => c.id === clienteId);
 
   // --- Suscripciones data ---
-  const vencidos = useMemo(() =>
-    suscripciones.filter(s =>
-      s.estado === 'activa' && isBefore(startOfDay(new Date(s.fechaVencimiento)), today)
-    ).sort((a, b) => new Date(b.fechaVencimiento).getTime() - new Date(a.fechaVencimiento).getTime()),
-    [suscripciones, today]
-  );
+  const vencidos = useMemo(() => {
+    const hoy = startOfDay(new Date());
+    return suscripciones.filter(s =>
+      s.estado === 'activa' && isBefore(startOfDay(new Date(s.fechaVencimiento)), hoy)
+    ).sort((a, b) => new Date(b.fechaVencimiento).getTime() - new Date(a.fechaVencimiento).getTime());
+  }, [suscripciones]);
 
   const vencimientosHoy = useMemo(() =>
     suscripciones.filter(s => s.estado === 'activa' && isToday(new Date(s.fechaVencimiento))),
     [suscripciones]
   );
 
-  const vencimientosProximos = useMemo(() =>
-    suscripciones.filter(s => {
+  const vencimientosProximos = useMemo(() => {
+    const hoy = startOfDay(new Date());
+    const en7Dias = addDays(hoy, 7);
+    return suscripciones.filter(s => {
       if (s.estado !== 'activa') return false;
       const fecha = startOfDay(new Date(s.fechaVencimiento));
-      return isAfter(fecha, today) && !isToday(new Date(s.fechaVencimiento))
-        && (isBefore(fecha, in7Days) || fecha.getTime() === in7Days.getTime());
-    }).sort((a, b) => new Date(a.fechaVencimiento).getTime() - new Date(b.fechaVencimiento).getTime()),
-    [suscripciones, today, in7Days]
-  );
+      return isAfter(fecha, hoy) && !isToday(new Date(s.fechaVencimiento))
+        && (isBefore(fecha, en7Dias) || fecha.getTime() === en7Dias.getTime());
+    }).sort((a, b) => new Date(a.fechaVencimiento).getTime() - new Date(b.fechaVencimiento).getTime());
+  }, [suscripciones]);
 
   // --- Stats ---
   const clientesActivos = useMemo(() => {

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Panel, Cliente, Suscripcion } from '@/types';
 import { Plus, Search } from 'lucide-react';
@@ -26,13 +26,20 @@ export default function PanelesPage({ initialSearch = '', onSearchConsumed }: Pa
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Panel | null>(null);
   const [filterServicio, setFilterServicio] = useState('Todos');
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [filterResumen, setFilterResumen] = useState('');
+
+  // Debounce search - 250ms delay so typing feels smooth on mobile
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchInput), 250);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   // Apply initial search from Dashboard navigation
   useEffect(() => {
     if (initialSearch) {
-      setSearch(initialSearch);
+      setSearchInput(initialSearch);
       setFilterServicio('Todos');
       setFilterResumen('');
       onSearchConsumed?.();
@@ -89,18 +96,25 @@ export default function PanelesPage({ initialSearch = '', onSearchConsumed }: Pa
     });
   }, [paneles, filterServicio, search, filterResumen, clientesPorPanel]);
 
-  const handleEdit = (panel: Panel) => {
+  const handleEdit = useCallback((panel: Panel) => {
     setEditing(panel);
     setFormOpen(true);
-  };
+  }, []);
 
-  const handleFilterResumen = (filter: string) => {
+  const handleRenovar = useCallback((p: Panel) => {
+    if (!p.fechaExpiracion) return;
+    const newDate = new Date(p.fechaExpiracion);
+    newDate.setDate(newDate.getDate() + 30);
+    updatePanel({ ...p, fechaExpiracion: newDate.toISOString().split('T')[0] });
+  }, [updatePanel]);
+
+  const handleFilterResumen = useCallback((filter: string) => {
     setFilterResumen(filter);
     if (filter) {
       setFilterServicio('Todos');
-      setSearch('');
+      setSearchInput('');
     }
-  };
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -132,8 +146,8 @@ export default function PanelesPage({ initialSearch = '', onSearchConsumed }: Pa
         <div className="relative flex-1 min-w-[180px] max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
             placeholder="Buscar panel, cliente, email, WhatsApp..."
             className="pl-8 h-8 text-xs"
           />
@@ -156,9 +170,9 @@ export default function PanelesPage({ initialSearch = '', onSearchConsumed }: Pa
       </div>
 
       {/* Search hint */}
-      {search && (
+      {searchInput && (
         <p className="text-[11px] text-muted-foreground">
-          Buscando en paneles y clientes asignados: <span className="font-medium text-foreground">{search}</span>
+          Buscando en paneles y clientes asignados: <span className="font-medium text-foreground">{searchInput}</span>
           {' '}&middot; {filtered.length} resultado{filtered.length !== 1 ? 's' : ''}
         </p>
       )}
@@ -183,12 +197,7 @@ export default function PanelesPage({ initialSearch = '', onSearchConsumed }: Pa
               clientesAsignados={clientesPorPanel[panel.id] || []}
               searchQuery={search}
               onEdit={handleEdit}
-              onRenovar={(p) => {
-                if (!p.fechaExpiracion) return;
-                const newDate = new Date(p.fechaExpiracion);
-                newDate.setDate(newDate.getDate() + 30);
-                updatePanel({ ...p, fechaExpiracion: newDate.toISOString().split('T')[0] });
-              }}
+              onRenovar={handleRenovar}
             />
           ))}
         </div>

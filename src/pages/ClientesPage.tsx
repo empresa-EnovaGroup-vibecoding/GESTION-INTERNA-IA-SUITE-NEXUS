@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
-import { Cliente, PaisCliente } from '@/types';
+import { Cliente, PaisCliente, Suscripcion } from '@/types';
 import { format, differenceInDays, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Plus, Trash2, Edit2, Phone, Users, Search, ArrowUpDown } from 'lucide-react';
@@ -34,8 +34,25 @@ export default function ClientesPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
+  const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'nombre' | 'vencimiento' | 'pais' | 'servicios'>('nombre');
+
+  // Debounce search - 250ms delay for smooth mobile typing
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchQuery(searchInput), 250);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  // Pre-compute subs per client (avoids O(n²) calls in filter+sort)
+  const subsMap = useMemo(() => {
+    const map: Record<string, Suscripcion[]> = {};
+    suscripciones.forEach(s => {
+      if (!map[s.clienteId]) map[s.clienteId] = [];
+      map[s.clienteId].push(s);
+    });
+    return map;
+  }, [suscripciones]);
 
   // New client form state
   const [newForm, setNewForm] = useState({ nombre: '', whatsapp: '', pais: '' as PaisCliente | '' });
@@ -55,25 +72,21 @@ export default function ClientesPage() {
         const whatsapp = c.whatsapp.toLowerCase();
         const pais = (c.pais || '').toLowerCase();
         const notas = (c.notas || '').toLowerCase();
-        const subs = getSuscripcionesByCliente(c.id);
-        const servicioNames = subs.map(s => {
-          const serv = getServicioById(s.servicioId);
-          return serv?.nombre?.toLowerCase() || '';
-        }).join(' ');
+        const subs = subsMap[c.id] || [];
+        const servicioNames = subs.map(s => getServicioById(s.servicioId)?.nombre?.toLowerCase() || '').join(' ');
         const credenciales = subs.map(s => (s.credencialEmail || '').toLowerCase()).join(' ');
         return nombre.includes(q) || whatsapp.includes(q) || pais.includes(q) || notas.includes(q) || servicioNames.includes(q) || credenciales.includes(q);
       });
     }
 
     // Sort
-    const hoy = startOfDay(new Date());
     resultado.sort((a, b) => {
       if (sortBy === 'nombre') {
         return a.nombre.localeCompare(b.nombre, 'es');
       }
       if (sortBy === 'vencimiento') {
-        const subsA = getSuscripcionesByCliente(a.id).filter(s => s.estado === 'activa');
-        const subsB = getSuscripcionesByCliente(b.id).filter(s => s.estado === 'activa');
+        const subsA = (subsMap[a.id] || []).filter(s => s.estado === 'activa');
+        const subsB = (subsMap[b.id] || []).filter(s => s.estado === 'activa');
         const minA = subsA.length > 0 ? Math.min(...subsA.map(s => new Date(s.fechaVencimiento).getTime())) : Infinity;
         const minB = subsB.length > 0 ? Math.min(...subsB.map(s => new Date(s.fechaVencimiento).getTime())) : Infinity;
         return minA - minB;
@@ -82,15 +95,15 @@ export default function ClientesPage() {
         return (a.pais || 'ZZZ').localeCompare(b.pais || 'ZZZ', 'es');
       }
       if (sortBy === 'servicios') {
-        const countA = getSuscripcionesByCliente(a.id).filter(s => s.estado === 'activa').length;
-        const countB = getSuscripcionesByCliente(b.id).filter(s => s.estado === 'activa').length;
+        const countA = (subsMap[a.id] || []).filter(s => s.estado === 'activa').length;
+        const countB = (subsMap[b.id] || []).filter(s => s.estado === 'activa').length;
         return countB - countA;
       }
       return 0;
     });
 
     return resultado;
-  }, [clientes, suscripciones, searchQuery, sortBy, getSuscripcionesByCliente, getServicioById]);
+  }, [clientes, searchQuery, sortBy, subsMap, getServicioById]);
 
   const resetCreate = () => {
     setNewForm({ nombre: '', whatsapp: '', pais: '' });
@@ -125,7 +138,7 @@ export default function ClientesPage() {
         <div>
           <h1 className="text-lg font-semibold">Clientes</h1>
           <p className="text-sm text-muted-foreground">
-            {searchQuery
+            {searchInput
               ? clientesFiltrados.length + ' de ' + clientes.length + ' clientes'
               : clientes.length + ' clientes registrados'}
           </p>
@@ -134,8 +147,8 @@ export default function ClientesPage() {
           <div className="relative w-48">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
               placeholder="Nombre, tel, correo..."
               className="pl-8 h-8 text-xs"
             />
@@ -241,7 +254,7 @@ export default function ClientesPage() {
             </thead>
             <tbody className="divide-y divide-border">
               {clientesFiltrados.map(cliente => {
-                const subs = getSuscripcionesByCliente(cliente.id);
+                const subs = subsMap[cliente.id] || [];
                 const activeSubs = subs.filter(s => s.estado === 'activa');
 
                 // Group subscriptions by service name

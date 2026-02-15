@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Panel, Cliente, Servicio, Suscripcion, Pago, Corte, Proyecto, CorteSemanal, EstadoPanel, CredencialHistorial } from '@/types';
 import { addDays, format, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 import { supabaseExternal } from '@/lib/supabaseExternal';
@@ -628,19 +628,32 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return panel ? panel.capacidadTotal - panel.cuposUsados : 0;
   }, [paneles]);
 
+  const contextValue = useMemo(() => ({
+    paneles, clientes, servicios, suscripciones, pagos, cortes, proyectos, cortesSemanales, loading,
+    addPanel, updatePanel, deletePanel, rotarCredenciales,
+    addCliente, addClienteConSuscripciones, updateCliente, deleteCliente,
+    addServicio, updateServicio, deleteServicio, getServicioById,
+    addSuscripcion, updateSuscripcion, deleteSuscripcion, getSuscripcionesByCliente,
+    addPago, updatePago, deletePago,
+    addCorte, deleteCorte,
+    addProyecto, updateProyecto, deleteProyecto, getProyectoById,
+    addCorteSemanal, deleteCorteSemanal,
+    getPanelById, getCuposDisponibles,
+  }), [
+    paneles, clientes, servicios, suscripciones, pagos, cortes, proyectos, cortesSemanales, loading,
+    addPanel, updatePanel, deletePanel, rotarCredenciales,
+    addCliente, addClienteConSuscripciones, updateCliente, deleteCliente,
+    addServicio, updateServicio, deleteServicio, getServicioById,
+    addSuscripcion, updateSuscripcion, deleteSuscripcion, getSuscripcionesByCliente,
+    addPago, updatePago, deletePago,
+    addCorte, deleteCorte,
+    addProyecto, updateProyecto, deleteProyecto, getProyectoById,
+    addCorteSemanal, deleteCorteSemanal,
+    getPanelById, getCuposDisponibles,
+  ]);
+
   return (
-    <DataContext.Provider value={{
-      paneles, clientes, servicios, suscripciones, pagos, cortes, proyectos, cortesSemanales, loading,
-      addPanel, updatePanel, deletePanel, rotarCredenciales,
-      addCliente, addClienteConSuscripciones, updateCliente, deleteCliente,
-      addServicio, updateServicio, deleteServicio, getServicioById,
-      addSuscripcion, updateSuscripcion, deleteSuscripcion, getSuscripcionesByCliente,
-      addPago, updatePago, deletePago,
-      addCorte, deleteCorte,
-      addProyecto, updateProyecto, deleteProyecto, getProyectoById,
-      addCorteSemanal, deleteCorteSemanal,
-      getPanelById, getCuposDisponibles,
-    }}>
+    <DataContext.Provider value={contextValue}>
       {children}
     </DataContext.Provider>
   );
