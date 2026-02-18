@@ -46,12 +46,48 @@ function AppContent() {
 }
 
 const Index = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, sessionExpired, clearSessionExpired } = useAuth();
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-muted-foreground">Cargando...</div>
+      <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fafafa' }}>
+        <div className="flex flex-col items-center gap-3">
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              border: '4px solid rgba(0,0,0,0.1)',
+              borderLeftColor: '#3b82f6',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+            }}
+          />
+          <span style={{ color: '#888', fontSize: 14 }}>Cargando...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user && sessionExpired) {
+    return (
+      <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fafafa' }}>
+        <div className="text-center p-8 rounded-xl shadow-lg" style={{ backgroundColor: '#fff', maxWidth: 400 }}>
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full" style={{ backgroundColor: '#fef3c7' }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold mb-2" style={{ color: '#111' }}>Tu sesión ha expirado</h2>
+          <p className="mb-6 text-sm" style={{ color: '#666' }}>Por seguridad, tu sesión se ha cerrado. Inicia sesión nuevamente para continuar.</p>
+          <button
+            onClick={clearSessionExpired}
+            className="w-full rounded-lg px-4 py-2.5 text-sm font-medium text-white"
+            style={{ backgroundColor: '#3b82f6' }}
+          >
+            Volver a iniciar sesión
+          </button>
+        </div>
       </div>
     );
   }
