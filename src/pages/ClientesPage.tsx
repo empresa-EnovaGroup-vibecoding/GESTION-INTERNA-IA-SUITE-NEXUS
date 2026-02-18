@@ -507,7 +507,7 @@ export default function ClientesPage() {
                   onNotasChange={(v) => setEditForm(f => ({ ...f, notas: v }))}
                 />
               </div>
-              <div className="sticky bottom-0 bg-background pt-4 pb-1 border-t border-border mt-4">
+              <div className="sticky bottom-0 z-10 bg-card pt-4 pb-1 border-t border-border mt-4 -mx-1 px-1">
                 <Button className="w-full" onClick={handleSaveEdit} disabled={savingEdit}>
                   {savingEdit ? 'Guardando...' : 'Guardar Datos del Cliente'}
                 </Button>
