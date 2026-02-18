@@ -35,7 +35,7 @@ export const SIDEBAR_DEFAULTS = {
 };
 
 const DEFAULTS: ConfigMap = {
-  empresa_nombre: 'AI Subs',
+  empresa_nombre: 'Nexus',
   empresa_subtitulo: 'Panel de gestión',
   empresa_logo_url: null,
   color_primario: '#6366F1',
