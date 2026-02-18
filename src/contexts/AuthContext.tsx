@@ -6,6 +6,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  sessionExpired: boolean;
+  clearSessionExpired: () => void;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -17,9 +19,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [sessionExpired, setSessionExpired] = useState(false);
+
   useEffect(() => {
     const { data: { subscription } } = supabaseExternal.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
+        if (event === 'SIGNED_OUT' && user && !session) {
+          // User had a session that expired/was revoked
+          setSessionExpired(true);
+        }
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -43,12 +51,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 
 
+  const clearSessionExpired = () => setSessionExpired(false);
+
   const signOut = async () => {
+    setSessionExpired(false);
     await supabaseExternal.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, sessionExpired, clearSessionExpired, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
