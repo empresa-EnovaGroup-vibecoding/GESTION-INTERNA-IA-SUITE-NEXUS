@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
 import {
   Select,
   SelectContent,
@@ -66,7 +67,14 @@ export default function ClienteSuscripciones({ clienteId }: Props) {
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.servicioId || !form.panelId) return;
+    if (!form.servicioId) {
+      toast.error('Selecciona un servicio');
+      return;
+    }
+    if (!form.panelId) {
+      toast.error('Selecciona un panel');
+      return;
+    }
     addSuscripcion({
       clienteId,
       servicioId: form.servicioId,
@@ -77,6 +85,7 @@ export default function ClienteSuscripciones({ clienteId }: Props) {
       credencialPassword: form.credencialPassword || undefined,
       notas: form.notas || undefined,
     });
+    toast.success('Servicio agregado');
     setForm({
       panelId: '', servicioId: '', fechaInicio: format(new Date(), 'yyyy-MM-dd'),
       precioCobrado: 0, credencialEmail: '', credencialPassword: '', notas: '',
@@ -110,6 +119,7 @@ export default function ClienteSuscripciones({ clienteId }: Props) {
       credencialPassword: editForm.credencialPassword || undefined,
       notas: editForm.notas || undefined,
     });
+    toast.success('Suscripción actualizada');
     setEditingId(null);
   };
 
@@ -135,7 +145,7 @@ export default function ClienteSuscripciones({ clienteId }: Props) {
       </div>
 
       {showAdd && (
-        <form onSubmit={handleAdd} className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
+        <form noValidate onSubmit={handleAdd} className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Servicio</Label>
             <Select value={form.servicioId} onValueChange={handleAddServicioChange}>
@@ -180,7 +190,6 @@ export default function ClienteSuscripciones({ clienteId }: Props) {
                 className="h-8 text-xs"
                 value={form.fechaInicio}
                 onChange={(e) => setForm(f => ({ ...f, fechaInicio: e.target.value }))}
-                required
               />
             </div>
             <div className="space-y-1.5">
@@ -247,10 +256,10 @@ export default function ClienteSuscripciones({ clienteId }: Props) {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">{servicio?.nombre || 'Servicio eliminado'}</span>
                     <div className="flex gap-1">
-                      <button type="button" onClick={() => saveEdit(sub)} className="rounded p-1 text-success hover:bg-success/10">
+                      <button type="button" onClick={() => saveEdit(sub)} className="rounded p-1 text-success hover:bg-success/10 active:scale-95 active:opacity-80 transition-all">
                         <Check className="h-3.5 w-3.5" />
                       </button>
-                      <button type="button" onClick={() => setEditingId(null)} className="rounded p-1 text-muted-foreground hover:bg-muted">
+                      <button type="button" onClick={() => setEditingId(null)} className="rounded p-1 text-muted-foreground hover:bg-muted active:scale-95 active:opacity-80 transition-all">
                         <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
@@ -382,14 +391,14 @@ export default function ClienteSuscripciones({ clienteId }: Props) {
                   <button
                     type="button"
                     onClick={() => startEdit(sub)}
-                    className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground active:scale-95 active:opacity-80 transition-all"
                   >
                     <Edit2 className="h-3.5 w-3.5" />
                   </button>
                   <button
                     type="button"
                     onClick={() => deleteSuscripcion(sub.id)}
-                    className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive active:scale-95 active:opacity-80 transition-all"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

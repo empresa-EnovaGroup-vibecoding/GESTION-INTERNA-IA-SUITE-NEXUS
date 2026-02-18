@@ -47,6 +47,7 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
   const [form, setForm] = useState(emptyForm);
   const [caidaReportada, setCaidaReportada] = useState(false);
   const [historialLocal, setHistorialLocal] = useState<CredencialHistorial[]>([]);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (editing) {
@@ -76,7 +77,6 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
       toast.error('No hay credenciales actuales para archivar');
       return;
     }
-    // Archive current credentials to local history
     const archivedEntry: CredencialHistorial = {
       email: form.email,
       password: form.password,
@@ -85,7 +85,6 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
       motivo: 'Caído - reemplazado',
     };
     setHistorialLocal(prev => [archivedEntry, ...prev]);
-    // Clear email/password fields
     setForm(f => ({ ...f, email: '', password: '' }));
     setCaidaReportada(true);
     toast.info('Credenciales archivadas. Ingresa las nuevas credenciales.');
@@ -93,126 +92,146 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (editing) {
-      updatePanel({
-        ...editing,
-        nombre: form.nombre,
-        email: form.email,
-        password: form.password,
-        fechaCompra: form.fechaCompra,
-        fechaExpiracion: form.fechaExpiracion,
-        capacidadTotal: form.capacidadTotal,
-        servicioAsociado: form.servicioAsociado,
-        proveedor: form.proveedor,
-        costoMensual: parseFloat(form.costoMensual) || 0,
-        vpn: form.vpn || undefined,
-        notas: form.notas || undefined,
-        credencialFechaInicio: caidaReportada ? format(new Date(), 'yyyy-MM-dd') : editing.credencialFechaInicio,
-        historialCredenciales: historialLocal,
-      });
-      if (caidaReportada) {
-        toast.success('Credenciales actualizadas correctamente');
-      }
-    } else {
-      addPanel({
-        ...form,
-        estado: 'activo',
-        costoMensual: parseFloat(form.costoMensual) || 0,
-        vpn: form.vpn || undefined,
-        notas: form.notas || undefined,
-        credencialFechaInicio: format(new Date(), 'yyyy-MM-dd'),
-      });
+    if (!form.nombre.trim()) {
+      toast.error('El nombre del panel es obligatorio');
+      return;
     }
-    onOpenChange(false);
-    setForm(emptyForm);
-    setCaidaReportada(false);
+    if (!form.email.trim()) {
+      toast.error('El email es obligatorio');
+      return;
+    }
+    if (!form.password.trim()) {
+      toast.error('El password es obligatorio');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      if (editing) {
+        updatePanel({
+          ...editing,
+          nombre: form.nombre,
+          email: form.email,
+          password: form.password,
+          fechaCompra: form.fechaCompra,
+          fechaExpiracion: form.fechaExpiracion,
+          capacidadTotal: form.capacidadTotal,
+          servicioAsociado: form.servicioAsociado,
+          proveedor: form.proveedor,
+          costoMensual: parseFloat(form.costoMensual) || 0,
+          vpn: form.vpn || undefined,
+          notas: form.notas || undefined,
+          credencialFechaInicio: caidaReportada ? format(new Date(), 'yyyy-MM-dd') : editing.credencialFechaInicio,
+          historialCredenciales: historialLocal,
+        });
+        toast.success(caidaReportada ? 'Credenciales actualizadas' : 'Panel actualizado');
+      } else {
+        addPanel({
+          ...form,
+          estado: 'activo',
+          costoMensual: parseFloat(form.costoMensual) || 0,
+          vpn: form.vpn || undefined,
+          notas: form.notas || undefined,
+          credencialFechaInicio: format(new Date(), 'yyyy-MM-dd'),
+        });
+        toast.success('Panel creado');
+      }
+      onOpenChange(false);
+      setForm(emptyForm);
+      setCaidaReportada(false);
+    } catch {
+      toast.error('Error al guardar panel');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{editing ? 'Editar Panel' : 'Nuevo Panel'}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Nombre</Label>
-              <Input value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Panel ChatGPT #1" required />
+        <form noValidate onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Nombre</Label>
+                <Input value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Panel ChatGPT #1" />
+              </div>
+              <div className="space-y-2">
+                <Label>Servicio asociado</Label>
+                <Select value={form.servicioAsociado} onValueChange={v => setForm(f => ({ ...f, servicioAsociado: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                  <SelectContent>
+                    {SERVICIOS_PREDETERMINADOS.map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            {caidaReportada && (
+              <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 p-2.5 text-sm text-primary">
+                <Info className="h-4 w-4 shrink-0" />
+                Ingresa las nuevas credenciales del proveedor
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder={caidaReportada ? 'nuevo@email.com' : ''} />
+              </div>
+              <div className="space-y-2">
+                <Label>Password</Label>
+                <Input value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder={caidaReportada ? 'nueva contraseña' : ''} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <Label>Fecha Compra</Label>
+                <Input type="date" value={form.fechaCompra} onChange={e => setForm(f => ({ ...f, fechaCompra: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Expiración</Label>
+                <Input type="date" value={form.fechaExpiracion} onChange={e => setForm(f => ({ ...f, fechaExpiracion: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Capacidad</Label>
+                <Input type="number" min={1} value={form.capacidadTotal} onChange={e => setForm(f => ({ ...f, capacidadTotal: parseInt(e.target.value) || 1 }))} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <Label>Proveedor (opcional)</Label>
+                <Input value={form.proveedor} onChange={e => setForm(f => ({ ...f, proveedor: e.target.value }))} placeholder="De dónde lo compraste" />
+              </div>
+              <div className="space-y-2">
+                <Label>VPN (opcional)</Label>
+                <Input value={form.vpn} onChange={e => setForm(f => ({ ...f, vpn: e.target.value }))} placeholder="ej: USA, Brasil..." />
+              </div>
+              <div className="space-y-2">
+                <Label>Costo Mensual ($)</Label>
+                <Input type="text" inputMode="decimal" value={form.costoMensual} onChange={e => { const v = e.target.value; if (v === '' || /^\d*\.?\d*$/.test(v)) setForm(f => ({ ...f, costoMensual: v })); }} placeholder="0.00" />
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <Label>Servicio asociado</Label>
-              <Select value={form.servicioAsociado} onValueChange={v => setForm(f => ({ ...f, servicioAsociado: v }))}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                <SelectContent>
-                  {SERVICIOS_PREDETERMINADOS.map(s => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Notas (opcional)</Label>
+              <Textarea value={form.notas} onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} placeholder="Notas adicionales sobre este panel..." rows={3} />
             </div>
           </div>
 
-          {/* Credential fields with caída message */}
-          {caidaReportada && (
-            <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 p-2.5 text-sm text-primary">
-              <Info className="h-4 w-4 shrink-0" />
-              Ingresa las nuevas credenciales del proveedor
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} required placeholder={caidaReportada ? 'nuevo@email.com' : ''} />
-            </div>
-            <div className="space-y-2">
-              <Label>Password</Label>
-              <Input value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} required placeholder={caidaReportada ? 'nueva contraseña' : ''} />
-            </div>
+          <div className="sticky bottom-0 bg-background pt-4 pb-1 border-t border-border mt-4">
+            <Button type="submit" className="w-full" disabled={submitting}>
+              {submitting ? 'Guardando...' : (editing ? 'Guardar Cambios' : 'Crear Panel')}
+            </Button>
           </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-2">
-              <Label>Fecha Compra</Label>
-              <Input type="date" value={form.fechaCompra} onChange={e => setForm(f => ({ ...f, fechaCompra: e.target.value }))} required />
-            </div>
-            <div className="space-y-2">
-              <Label>Expiración</Label>
-              <Input type="date" value={form.fechaExpiracion} onChange={e => setForm(f => ({ ...f, fechaExpiracion: e.target.value }))} required />
-            </div>
-            <div className="space-y-2">
-              <Label>Capacidad</Label>
-              <Input type="number" min={1} value={form.capacidadTotal} onChange={e => setForm(f => ({ ...f, capacidadTotal: parseInt(e.target.value) || 1 }))} required />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-2">
-              <Label>Proveedor (opcional)</Label>
-              <Input value={form.proveedor} onChange={e => setForm(f => ({ ...f, proveedor: e.target.value }))} placeholder="De dónde lo compraste" />
-            </div>
-            <div className="space-y-2">
-              <Label>VPN (opcional)</Label>
-              <Input value={form.vpn} onChange={e => setForm(f => ({ ...f, vpn: e.target.value }))} placeholder="ej: USA, Brasil..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Costo Mensual ($)</Label>
-              <Input type="text" inputMode="decimal" value={form.costoMensual} onChange={e => { const v = e.target.value; if (v === '' || /^\d*\.?\d*$/.test(v)) setForm(f => ({ ...f, costoMensual: v })); }} placeholder="0.00" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Notas (opcional)</Label>
-            <Textarea value={form.notas} onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} placeholder="Notas adicionales sobre este panel..." rows={3} />
-          </div>
-
-          <Button type="submit" className="w-full">
-            {editing ? 'Guardar Cambios' : 'Crear Panel'}
-          </Button>
         </form>
 
-        {/* Reportar Caída button - only in edit mode, only if not already reported */}
         {editing && !caidaReportada && (
           <div className="mt-4 pt-4 border-t border-border">
             <Button
@@ -228,7 +247,6 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
           </div>
         )}
 
-        {/* Historial de Credenciales - read only */}
         {editing && historialLocal.length > 0 && (
           <div className="mt-4 pt-4 border-t border-border space-y-2">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
@@ -293,7 +311,7 @@ function CredencialHistorialRow({ entry, index, onDelete }: { entry: CredencialH
           <span className="text-[10px] text-muted-foreground">
             {format(new Date(entry.fechaInicio), 'dd/MM/yyyy')} — {format(new Date(entry.fechaFin), 'dd/MM/yyyy')}
           </span>
-          <button type="button" onClick={onDelete} className="text-muted-foreground hover:text-destructive shrink-0" title="Eliminar">
+          <button type="button" onClick={onDelete} className="text-muted-foreground hover:text-destructive shrink-0 active:scale-95 active:opacity-80 transition-all" title="Eliminar">
             <Trash2 className="h-3 w-3" />
           </button>
         </div>
@@ -301,17 +319,17 @@ function CredencialHistorialRow({ entry, index, onDelete }: { entry: CredencialH
       <div className="flex items-center gap-1.5">
         <span className="text-muted-foreground">Email:</span>
         <span className="font-mono truncate">{entry.email}</span>
-        <button type="button" onClick={() => copy(entry.email, `he-${index}`)} className="text-muted-foreground hover:text-foreground shrink-0">
+        <button type="button" onClick={() => copy(entry.email, `he-${index}`)} className="text-muted-foreground hover:text-foreground shrink-0 active:scale-95 active:opacity-80 transition-all">
           {copied === `he-${index}` ? <Check className="h-2.5 w-2.5 text-emerald-500" /> : <Copy className="h-2.5 w-2.5" />}
         </button>
       </div>
       <div className="flex items-center gap-1.5">
         <span className="text-muted-foreground">Pass:</span>
         <span className="font-mono">{showPw ? entry.password : '••••••'}</span>
-        <button type="button" onClick={() => setShowPw(!showPw)} className="text-muted-foreground hover:text-foreground shrink-0">
+        <button type="button" onClick={() => setShowPw(!showPw)} className="text-muted-foreground hover:text-foreground shrink-0 active:scale-95 active:opacity-80 transition-all">
           {showPw ? <EyeOff className="h-2.5 w-2.5" /> : <Eye className="h-2.5 w-2.5" />}
         </button>
-        <button type="button" onClick={() => copy(entry.password, `hp-${index}`)} className="text-muted-foreground hover:text-foreground shrink-0">
+        <button type="button" onClick={() => copy(entry.password, `hp-${index}`)} className="text-muted-foreground hover:text-foreground shrink-0 active:scale-95 active:opacity-80 transition-all">
           {copied === `hp-${index}` ? <Check className="h-2.5 w-2.5 text-emerald-500" /> : <Copy className="h-2.5 w-2.5" />}
         </button>
       </div>

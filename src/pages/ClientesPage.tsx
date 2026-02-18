@@ -20,6 +20,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import ServicioFormInline, { PendingSuscripcion } from '@/components/ServicioFormInline';
 import ClienteEditPanel from '@/components/ClienteEditPanel';
+import { toast } from 'sonner';
 
 const PAISES: PaisCliente[] = ['Venezuela', 'Ecuador', 'Colombia', 'Mexico'];
 
@@ -37,6 +38,8 @@ export default function ClientesPage() {
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'nombre' | 'vencimiento' | 'pais' | 'servicios'>('nombre');
+  const [submitting, setSubmitting] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Debounce search - 250ms delay for smooth mobile typing
   useEffect(() => {
@@ -110,15 +113,30 @@ export default function ClientesPage() {
     setPendingSubs([]);
   };
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newForm.nombre || !newForm.whatsapp) return;
-    addClienteConSuscripciones(
-      { nombre: newForm.nombre, whatsapp: newForm.whatsapp, pais: newForm.pais || undefined },
-      pendingSubs.map(({ _tempId, ...rest }) => rest)
-    );
-    setCreateOpen(false);
-    resetCreate();
+    if (!newForm.nombre.trim()) {
+      toast.error('El nombre es obligatorio');
+      return;
+    }
+    if (!newForm.whatsapp.trim()) {
+      toast.error('El WhatsApp es obligatorio');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      addClienteConSuscripciones(
+        { nombre: newForm.nombre, whatsapp: newForm.whatsapp, pais: newForm.pais || undefined },
+        pendingSubs.map(({ _tempId, ...rest }) => rest)
+      );
+      toast.success('Cliente registrado');
+      setCreateOpen(false);
+      resetCreate();
+    } catch {
+      toast.error('Error al registrar cliente');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const openEdit = (cliente: Cliente) => {
@@ -126,10 +144,26 @@ export default function ClientesPage() {
     setEditForm({ nombre: cliente.nombre, whatsapp: cliente.whatsapp, pais: cliente.pais || '', notas: cliente.notas || '' });
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingCliente) return;
-    updateCliente({ ...editingCliente, ...editForm, pais: editForm.pais || undefined, notas: editForm.notas || undefined });
-    setEditingCliente(null);
+    if (!editForm.nombre.trim()) {
+      toast.error('El nombre es obligatorio');
+      return;
+    }
+    if (!editForm.whatsapp.trim()) {
+      toast.error('El WhatsApp es obligatorio');
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      updateCliente({ ...editingCliente, ...editForm, pais: editForm.pais || undefined, notas: editForm.notas || undefined });
+      toast.success('Cliente actualizado');
+      setEditingCliente(null);
+    } catch {
+      toast.error('Error al guardar cliente');
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   return (
@@ -174,57 +208,60 @@ export default function ClientesPage() {
               Nuevo Cliente
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogContent className="max-h-[90vh] flex flex-col sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Nuevo Cliente</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleCreate} className="space-y-5">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Nombre</Label>
-                  <Input
-                    value={newForm.nombre}
-                    onChange={(e) => setNewForm(f => ({ ...f, nombre: e.target.value }))}
-                    placeholder="Nombre del cliente"
-                    required
-                  />
+            <form noValidate onSubmit={handleCreate} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto space-y-5 pr-1">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Nombre</Label>
+                    <Input
+                      value={newForm.nombre}
+                      onChange={(e) => setNewForm(f => ({ ...f, nombre: e.target.value }))}
+                      placeholder="Nombre del cliente"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>WhatsApp</Label>
+                    <Input
+                      value={newForm.whatsapp}
+                      onChange={(e) => setNewForm(f => ({ ...f, whatsapp: e.target.value }))}
+                      placeholder="+57 300 123 4567"
+                      inputMode="tel"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>País</Label>
+                    <Select value={newForm.pais} onValueChange={v => setNewForm(f => ({ ...f, pais: v as PaisCliente }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAISES.map(p => (
+                          <SelectItem key={p} value={p}>{p}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>WhatsApp</Label>
-                  <Input
-                    value={newForm.whatsapp}
-                    onChange={(e) => setNewForm(f => ({ ...f, whatsapp: e.target.value }))}
-                    placeholder="+57 300 123 4567"
-                    required
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>País</Label>
-                  <Select value={newForm.pais} onValueChange={v => setNewForm(f => ({ ...f, pais: v as PaisCliente }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PAISES.map(p => (
-                        <SelectItem key={p} value={p}>{p}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+
+                <Separator />
+
+                <ServicioFormInline
+                  items={pendingSubs}
+                  onAdd={(item) => setPendingSubs(prev => [...prev, item])}
+                  onRemove={(tempId) => setPendingSubs(prev => prev.filter(i => i._tempId !== tempId))}
+                  paisCliente={newForm.pais}
+                />
               </div>
 
-              <Separator />
-
-              <ServicioFormInline
-                items={pendingSubs}
-                onAdd={(item) => setPendingSubs(prev => [...prev, item])}
-                onRemove={(tempId) => setPendingSubs(prev => prev.filter(i => i._tempId !== tempId))}
-                paisCliente={newForm.pais}
-              />
-
-              <Button type="submit" className="w-full">
-                Registrar Cliente {pendingSubs.length > 0 && `con ${pendingSubs.length} servicio(s)`}
-              </Button>
+              <div className="sticky bottom-0 bg-background pt-4 pb-1 border-t border-border mt-4">
+                <Button type="submit" className="w-full" disabled={submitting}>
+                  {submitting ? 'Registrando...' : `Registrar Cliente${pendingSubs.length > 0 ? ` con ${pendingSubs.length} servicio(s)` : ''}`}
+                </Button>
+              </div>
             </form>
           </DialogContent>
         </Dialog>
@@ -234,7 +271,7 @@ export default function ClientesPage() {
       {/* Mobile FAB for new client */}
       <button
         onClick={() => setCreateOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex md:hidden h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg active:scale-95 transition-transform"
+        className="fixed bottom-6 right-6 z-40 flex md:hidden h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg active:scale-95 active:opacity-80 transition-transform"
         aria-label="Nuevo Cliente"
       >
         <Plus className="h-6 w-6" />
@@ -273,7 +310,7 @@ export default function ClientesPage() {
                     <div className="min-w-0 flex-1">
                       <button
                         onClick={() => openEdit(cliente)}
-                        className="font-medium text-sm hover:text-primary hover:underline text-left cursor-pointer truncate block max-w-full"
+                        className="font-medium text-sm hover:text-primary hover:underline text-left cursor-pointer truncate block max-w-full active:scale-95 active:opacity-80 transition-all"
                       >
                         {cliente.nombre}
                       </button>
@@ -282,13 +319,13 @@ export default function ClientesPage() {
                     <div className="flex shrink-0 gap-1">
                       <button
                         onClick={() => openEdit(cliente)}
-                        className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground active:scale-95 active:opacity-80 transition-all"
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => deleteCliente(cliente.id)}
-                        className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive active:scale-95 active:opacity-80 transition-all"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -428,13 +465,13 @@ export default function ClientesPage() {
                         <div className="flex justify-end gap-1">
                           <button
                             onClick={() => openEdit(cliente)}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground active:scale-95 active:opacity-80 transition-all"
                           >
                             <Edit2 className="h-3.5 w-3.5" />
                           </button>
                           <button
                             onClick={() => deleteCliente(cliente.id)}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive active:scale-95 active:opacity-80 transition-all"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -451,26 +488,30 @@ export default function ClientesPage() {
 
       {/* === 3. EDIT CLIENT DIALOG === */}
       <Dialog open={!!editingCliente} onOpenChange={(v) => { if (!v) setEditingCliente(null); }}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[90vh] flex flex-col sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Editar Cliente</DialogTitle>
           </DialogHeader>
           {editingCliente && (
-            <div className="space-y-4">
-              <ClienteEditPanel
-                clienteId={editingCliente.id}
-                nombre={editForm.nombre}
-                whatsapp={editForm.whatsapp}
-                pais={editForm.pais}
-                notas={editForm.notas}
-                onNombreChange={(v) => setEditForm(f => ({ ...f, nombre: v }))}
-                onWhatsappChange={(v) => setEditForm(f => ({ ...f, whatsapp: v }))}
-                onPaisChange={(v) => setEditForm(f => ({ ...f, pais: v }))}
-                onNotasChange={(v) => setEditForm(f => ({ ...f, notas: v }))}
-              />
-              <Button className="w-full" onClick={handleSaveEdit}>
-                Guardar Datos del Cliente
-              </Button>
+            <div className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+                <ClienteEditPanel
+                  clienteId={editingCliente.id}
+                  nombre={editForm.nombre}
+                  whatsapp={editForm.whatsapp}
+                  pais={editForm.pais}
+                  notas={editForm.notas}
+                  onNombreChange={(v) => setEditForm(f => ({ ...f, nombre: v }))}
+                  onWhatsappChange={(v) => setEditForm(f => ({ ...f, whatsapp: v }))}
+                  onPaisChange={(v) => setEditForm(f => ({ ...f, pais: v }))}
+                  onNotasChange={(v) => setEditForm(f => ({ ...f, notas: v }))}
+                />
+              </div>
+              <div className="sticky bottom-0 bg-background pt-4 pb-1 border-t border-border mt-4">
+                <Button className="w-full" onClick={handleSaveEdit} disabled={savingEdit}>
+                  {savingEdit ? 'Guardando...' : 'Guardar Datos del Cliente'}
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
