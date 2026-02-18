@@ -29,7 +29,7 @@ export const SIDEBAR_DEFAULTS = {
   sidebar_active_text: '#ececf0',
   sidebar_hover_bg: '#141418',
   sidebar_icon_color: '#5f5f6a',
-  sidebar_icon_active: '#4ef4c2',
+  sidebar_icon_active: '#E85565',
   sidebar_border: '#1e1e23',
   sidebar_logo_bg: '#111114',
 };

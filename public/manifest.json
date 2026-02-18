@@ -3,8 +3,8 @@
   "short_name": "Nexus",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#19191a",
-  "theme_color": "#4ef4c2",
+  "background_color": "#fafafa",
+  "theme_color": "#E85565",
   "orientation": "any",
   "icons": [
     {

@@ -79,7 +79,7 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
           {config.empresa_logo_url ? (
             <img src={config.empresa_logo_url} alt="Logo" className="h-8 w-8 rounded-xl object-cover" />
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ backgroundColor: 'var(--sidebar-icon-active, #4ef4c2)' }}>
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ backgroundColor: 'var(--sidebar-icon-active, #E85565)' }}>
               <Monitor className="h-4 w-4 text-primary-foreground" />
             </div>
           )}
@@ -108,7 +108,7 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
                 style={{
                   backgroundColor: isActive ? 'var(--sidebar-active-bg, #2d3348)' : undefined,
                   color: isActive ? 'var(--sidebar-active-text, #fff)' : 'var(--sidebar-text, #94a3b8)',
-                  borderColor: isActive ? 'var(--sidebar-icon-active, #4ef4c2)' : 'transparent',
+                  borderColor: isActive ? 'var(--sidebar-icon-active, #E85565)' : 'transparent',
                 }}
                 onMouseEnter={e => {
                   if (!isActive) {
@@ -123,7 +123,7 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
                   }
                 }}
               >
-                <Icon className="h-[18px] w-[18px]" style={{ color: isActive ? 'var(--sidebar-icon-active, #4ef4c2)' : 'var(--sidebar-icon-color, #64748b)' }} />
+                <Icon className="h-[18px] w-[18px]" style={{ color: isActive ? 'var(--sidebar-icon-active, #E85565)' : 'var(--sidebar-icon-color, #64748b)' }} />
                 {item.label}
               </button>
             );
