@@ -19,7 +19,7 @@ interface DashboardProps {
 
 export default function Dashboard({ onNavigate, onNavigateToPanel }: DashboardProps) {
   const {
-    clientes, paneles, suscripciones, pagos, cortes, servicios,
+    clientes, paneles, suscripciones, pagos, cortes, servicios, loading,
     getPanelById, getServicioById, updateSuscripcion,
   } = useData();
 
@@ -218,7 +218,11 @@ export default function Dashboard({ onNavigate, onNavigateToPanel }: DashboardPr
             <p className="text-xs text-muted-foreground">Clientes Activos</p>
             <Users className="h-3.5 w-3.5 text-primary" />
           </div>
-          <p className="mt-1.5 text-xl font-bold">{clientesActivos}</p>
+          {loading ? (
+            <div className="mt-2 h-6 w-12 rounded bg-muted animate-pulse" />
+          ) : (
+            <p className="mt-1.5 text-xl font-bold">{clientesActivos}</p>
+          )}
         </button>
 
         <button onClick={() => onNavigate?.('paneles')} className="stat-card text-left cursor-pointer hover:border-primary/30 transition-colors">
@@ -226,7 +230,11 @@ export default function Dashboard({ onNavigate, onNavigateToPanel }: DashboardPr
             <p className="text-xs text-muted-foreground">Paneles Activos</p>
             <Monitor className="h-3.5 w-3.5 text-primary" />
           </div>
-          <p className="mt-1.5 text-xl font-bold">{panelesActivos}</p>
+          {loading ? (
+            <div className="mt-2 h-6 w-12 rounded bg-muted animate-pulse" />
+          ) : (
+            <p className="mt-1.5 text-xl font-bold">{panelesActivos}</p>
+          )}
         </button>
 
         <button onClick={() => onNavigate?.('finanzas')} className="stat-card text-left cursor-pointer hover:border-primary/30 transition-colors">
@@ -234,9 +242,13 @@ export default function Dashboard({ onNavigate, onNavigateToPanel }: DashboardPr
             <p className="text-xs text-muted-foreground">Ganancia Neta</p>
             <TrendingUp className="h-3.5 w-3.5 text-success" />
           </div>
-          <p className={'mt-1.5 text-xl font-bold ' + (ganancia >= 0 ? 'text-success' : 'text-destructive')}>
-            ${ganancia.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-          </p>
+          {loading ? (
+            <div className="mt-2 h-6 w-16 rounded bg-muted animate-pulse" />
+          ) : (
+            <p className={'mt-1.5 text-xl font-bold ' + (ganancia >= 0 ? 'text-success' : 'text-destructive')}>
+              ${ganancia.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </p>
+          )}
         </button>
 
         <div className="stat-card">
@@ -244,9 +256,13 @@ export default function Dashboard({ onNavigate, onNavigateToPanel }: DashboardPr
             <p className="text-xs text-muted-foreground">Requieren Acción</p>
             <AlertTriangle className={'h-3.5 w-3.5 ' + (totalUrgente > 0 ? 'text-destructive' : 'text-muted-foreground')} />
           </div>
-          <p className={'mt-1.5 text-xl font-bold ' + (totalUrgente > 0 ? 'text-destructive' : '')}>
-            {totalUrgente}
-          </p>
+          {loading ? (
+            <div className="mt-2 h-6 w-8 rounded bg-muted animate-pulse" />
+          ) : (
+            <p className={'mt-1.5 text-xl font-bold ' + (totalUrgente > 0 ? 'text-destructive' : '')}>
+              {totalUrgente}
+            </p>
+          )}
         </div>
       </div>
 
