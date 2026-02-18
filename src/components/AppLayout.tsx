@@ -84,8 +84,17 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
             </div>
           )}
           <div>
-            <h1 className="text-[15px] font-bold" style={{ color: 'var(--sidebar-active-text, #fff)' }}>{config.empresa_nombre}</h1>
-            <p className="text-[11px]" style={{ color: 'var(--sidebar-text, #a1afc0)', opacity: 0.7 }}>{config.empresa_subtitulo}</p>
+            {loading ? (
+              <>
+                <div className="h-4 w-24 rounded bg-white/10 animate-pulse mb-1" />
+                <div className="h-3 w-16 rounded bg-white/10 animate-pulse" />
+              </>
+            ) : (
+              <>
+                <h1 className="text-[15px] font-bold" style={{ color: 'var(--sidebar-active-text, #fff)' }}>{config.empresa_nombre}</h1>
+                <p className="text-[11px]" style={{ color: 'var(--sidebar-text, #a1afc0)', opacity: 0.7 }}>{config.empresa_subtitulo}</p>
+              </>
+            )}
           </div>
         </div>
 
