@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Suscripcion, Pago, Cliente } from '@/types';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 type ViewMode = 'month' | 'week';
 type EventFilter = 'todo' | 'pagos' | 'vencimientos' | 'renovaciones' | 'nuevos';
@@ -48,11 +49,14 @@ export default function CalendarioPage() {
     getServicioById, updateSuscripcion, updatePago,
   } = useData();
 
+  const isMobile = useIsMobile();
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [selectedDay, setSelectedDay] = useState<DayEvents | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<EventFilter>('todo');
+  const [mobileDayIndex, setMobileDayIndex] = useState(0);
 
   const getCliente = useCallback((id: string) => clientes.find(c => c.id === id), [clientes]);
 
@@ -503,69 +507,151 @@ export default function CalendarioPage() {
             )}
           </div>
 
-          {/* Day columns */}
-          <div className="grid grid-cols-7 gap-2 min-w-[600px] overflow-x-auto">
-            {weekDays.map(({ date, events }) => {
-              const dateStr = format(date, 'yyyy-MM-dd');
-              const dayName = format(date, 'EEE', { locale: es });
-              const isSat = getDay(date) === 6;
-              const isDragTarget = dragOverDate === dateStr;
-              const { visible } = buildChips(events, 99);
-              const filteredCount = getFilteredEventCount(events);
-              const badgeColor = getDayBadgeColor(events);
+          {/* Day columns - mobile: single day with nav; desktop: 7-col grid */}
+          {isMobile ? (
+            <div className="space-y-3">
+              {/* Mobile day navigator */}
+              <div className="flex items-center justify-between rounded-lg border border-border bg-card px-2 py-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMobileDayIndex(i => Math.max(0, i - 1))} disabled={mobileDayIndex === 0}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex gap-1">
+                  {weekDays.map((wd, idx) => {
+                    const fc = getFilteredEventCount(wd.events);
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => setMobileDayIndex(idx)}
+                        className={cn(
+                          'flex flex-col items-center rounded-md px-2 py-1 text-[10px] transition-colors min-w-[36px]',
+                          idx === mobileDayIndex
+                            ? 'bg-primary text-primary-foreground'
+                            : isToday(wd.date)
+                            ? 'text-primary font-bold'
+                            : 'text-muted-foreground',
+                        )}
+                      >
+                        <span className="uppercase font-semibold">{format(wd.date, 'EEE', { locale: es }).slice(0, 2)}</span>
+                        <span className="text-xs font-bold">{format(wd.date, 'd')}</span>
+                        {fc > 0 && idx !== mobileDayIndex && (
+                          <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMobileDayIndex(i => Math.min(6, i + 1))} disabled={mobileDayIndex === 6}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
 
-              return (
-                <div
-                  key={dateStr}
-                  onDragOver={(e) => handleDragOver(e, dateStr)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, dateStr)}
-                  onClick={() => {
-                    const totalAll = events.renovaciones.length + events.vencimientos.length + events.pagos.length + events.nuevosClientes.length;
-                    if (totalAll > 0) setSelectedDay(events);
-                  }}
-                  className={cn(
-                    'rounded-lg border p-3 text-left transition-all min-h-[160px]',
-                    isDragTarget ? 'border-primary ring-2 ring-primary/30 bg-primary/5' :
-                    isToday(date) ? 'border-primary ring-1 ring-primary bg-primary/5' :
-                    isSat ? 'border-warning/30 bg-warning/5' :
-                    'border-border bg-card',
-                    visible.length > 0 && 'cursor-pointer hover:shadow-md',
-                  )}
-                >
-                  <div className="text-center mb-2">
-                    <p className={`text-[10px] uppercase font-semibold ${isToday(date) ? 'text-primary' : 'text-muted-foreground'}`}>{dayName}</p>
-                    <div className="flex items-center justify-center gap-1.5">
-                      <p className={`text-lg font-bold ${isToday(date) ? 'text-primary' : ''}`}>{format(date, 'd')}</p>
-                      {filteredCount > 0 && (
-                        <span className={cn(
-                          'text-[9px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center',
-                          badgeColor
-                        )}>
-                          {filteredCount}
-                        </span>
+              {/* Mobile single day card */}
+              {(() => {
+                const { date, events } = weekDays[mobileDayIndex];
+                const dateStr = format(date, 'yyyy-MM-dd');
+                const isSat = getDay(date) === 6;
+                const { visible } = buildChips(events, 99);
+
+                return (
+                  <div
+                    key={dateStr}
+                    onClick={() => {
+                      const totalAll = events.renovaciones.length + events.vencimientos.length + events.pagos.length + events.nuevosClientes.length;
+                      if (totalAll > 0) setSelectedDay(events);
+                    }}
+                    className={cn(
+                      'rounded-lg border p-4 text-left transition-all min-h-[200px]',
+                      isToday(date) ? 'border-primary ring-1 ring-primary bg-primary/5' :
+                      isSat ? 'border-warning/30 bg-warning/5' :
+                      'border-border bg-card',
+                      visible.length > 0 && 'cursor-pointer',
+                    )}
+                  >
+                    <div className="text-center mb-3">
+                      <p className={`text-xs uppercase font-semibold capitalize ${isToday(date) ? 'text-primary' : 'text-muted-foreground'}`}>
+                        {format(date, 'EEEE', { locale: es })}
+                      </p>
+                      <p className={`text-2xl font-bold ${isToday(date) ? 'text-primary' : ''}`}>
+                        {format(date, 'd')}
+                      </p>
+                      {isSat && (
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-warning border-warning/30 mt-1">Corte</Badge>
                       )}
                     </div>
-                    {isSat && (
-                      <Badge variant="outline" className="text-[8px] px-1 py-0 text-warning border-warning/30 mt-0.5">Corte</Badge>
-                    )}
+                    <div className="space-y-1.5">
+                      {visible.length === 0 && (
+                        <p className="text-sm text-muted-foreground/50 text-center mt-6">Sin eventos</p>
+                      )}
+                      {visible.map((chip, ci) => (
+                        <EventChip key={ci} {...chip} />
+                      ))}
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    {visible.length === 0 && (
-                      <p className="text-[10px] text-muted-foreground/50 text-center mt-4">—</p>
+                );
+              })()}
+            </div>
+          ) : (
+            <div className="grid grid-cols-7 gap-2">
+              {weekDays.map(({ date, events }) => {
+                const dateStr = format(date, 'yyyy-MM-dd');
+                const dayName = format(date, 'EEE', { locale: es });
+                const isSat = getDay(date) === 6;
+                const isDragTarget = dragOverDate === dateStr;
+                const { visible } = buildChips(events, 99);
+                const filteredCount = getFilteredEventCount(events);
+                const badgeColor = getDayBadgeColor(events);
+
+                return (
+                  <div
+                    key={dateStr}
+                    onDragOver={(e) => handleDragOver(e, dateStr)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, dateStr)}
+                    onClick={() => {
+                      const totalAll = events.renovaciones.length + events.vencimientos.length + events.pagos.length + events.nuevosClientes.length;
+                      if (totalAll > 0) setSelectedDay(events);
+                    }}
+                    className={cn(
+                      'rounded-lg border p-3 text-left transition-all min-h-[160px]',
+                      isDragTarget ? 'border-primary ring-2 ring-primary/30 bg-primary/5' :
+                      isToday(date) ? 'border-primary ring-1 ring-primary bg-primary/5' :
+                      isSat ? 'border-warning/30 bg-warning/5' :
+                      'border-border bg-card',
+                      visible.length > 0 && 'cursor-pointer hover:shadow-md',
                     )}
-                    {visible.map((chip, ci) => (
-                      <EventChip key={ci} {...chip} />
-                    ))}
+                  >
+                    <div className="text-center mb-2">
+                      <p className={`text-[10px] uppercase font-semibold ${isToday(date) ? 'text-primary' : 'text-muted-foreground'}`}>{dayName}</p>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <p className={`text-lg font-bold ${isToday(date) ? 'text-primary' : ''}`}>{format(date, 'd')}</p>
+                        {filteredCount > 0 && (
+                          <span className={cn(
+                            'text-[9px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center',
+                            badgeColor
+                          )}>
+                            {filteredCount}
+                          </span>
+                        )}
+                      </div>
+                      {isSat && (
+                        <Badge variant="outline" className="text-[8px] px-1 py-0 text-warning border-warning/30 mt-0.5">Corte</Badge>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      {visible.length === 0 && (
+                        <p className="text-[10px] text-muted-foreground/50 text-center mt-4">—</p>
+                      )}
+                      {visible.map((chip, ci) => (
+                        <EventChip key={ci} {...chip} />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
-
-      {/* ═══ DAY DETAIL MODAL ═══ */}
       {selectedDay && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => setSelectedDay(null)} />
