@@ -12,11 +12,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 
 export default function ServiciosPage() {
   const { servicios, suscripciones, addServicio, updateServicio, deleteServicio } = useData();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Servicio | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({ nombre: '', precioBase: '', precioRefMXN: '', precioRefCOP: '' });
 
@@ -27,19 +29,36 @@ export default function ServiciosPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const data = {
-      nombre: form.nombre,
-      precioBase: parseFloat(form.precioBase) || 0,
-      precioRefMXN: form.precioRefMXN ? parseFloat(form.precioRefMXN) : undefined,
-      precioRefCOP: form.precioRefCOP ? parseFloat(form.precioRefCOP) : undefined,
-    };
-    if (editing) {
-      updateServicio({ ...editing, ...data });
-    } else {
-      addServicio(data);
+    if (!form.nombre.trim()) {
+      toast.error('El nombre del servicio es obligatorio');
+      return;
     }
-    setOpen(false);
-    resetForm();
+    if (!form.precioBase) {
+      toast.error('El precio base es obligatorio');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const data = {
+        nombre: form.nombre,
+        precioBase: parseFloat(form.precioBase) || 0,
+        precioRefMXN: form.precioRefMXN ? parseFloat(form.precioRefMXN) : undefined,
+        precioRefCOP: form.precioRefCOP ? parseFloat(form.precioRefCOP) : undefined,
+      };
+      if (editing) {
+        updateServicio({ ...editing, ...data });
+        toast.success('Servicio actualizado');
+      } else {
+        addServicio(data);
+        toast.success('Servicio creado');
+      }
+      setOpen(false);
+      resetForm();
+    } catch {
+      toast.error('Error al guardar servicio');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleEdit = (servicio: Servicio) => {
@@ -74,54 +93,58 @@ export default function ServiciosPage() {
             <DialogHeader>
               <DialogTitle>{editing ? 'Editar Servicio' : 'Nuevo Servicio'}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form noValidate onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label>Nombre del Servicio</Label>
                 <Input
                   value={form.nombre}
                   onChange={(e) => setForm(f => ({ ...f, nombre: e.target.value }))}
                   placeholder="ChatGPT, Canva, CapCut..."
-                  required
                 />
               </div>
               <div className="space-y-2">
                 <Label>Precio Base (USD)</Label>
                 <Input
-                  type="number"
-                  min={0}
-                  step={0.01}
+                  type="text"
+                  inputMode="decimal"
                   value={form.precioBase}
-                  onChange={(e) => setForm(f => ({ ...f, precioBase: e.target.value }))}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || /^\d*\.?\d*$/.test(v)) setForm(f => ({ ...f, precioBase: v }));
+                  }}
                   placeholder="5.00"
-                  required
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Referencia MXN (opcional)</Label>
                   <Input
-                    type="number"
-                    min={0}
-                    step={0.01}
+                    type="text"
+                    inputMode="decimal"
                     value={form.precioRefMXN}
-                    onChange={(e) => setForm(f => ({ ...f, precioRefMXN: e.target.value }))}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '' || /^\d*\.?\d*$/.test(v)) setForm(f => ({ ...f, precioRefMXN: v }));
+                    }}
                     placeholder="100"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Referencia COP (opcional)</Label>
                   <Input
-                    type="number"
-                    min={0}
-                    step={1}
+                    type="text"
+                    inputMode="decimal"
                     value={form.precioRefCOP}
-                    onChange={(e) => setForm(f => ({ ...f, precioRefCOP: e.target.value }))}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '' || /^\d*\.?\d*$/.test(v)) setForm(f => ({ ...f, precioRefCOP: v }));
+                    }}
                     placeholder="20000"
                   />
                 </div>
               </div>
-              <Button type="submit" className="w-full">
-                {editing ? 'Guardar Cambios' : 'Crear Servicio'}
+              <Button type="submit" className="w-full" disabled={submitting}>
+                {submitting ? 'Guardando...' : (editing ? 'Guardar Cambios' : 'Crear Servicio')}
               </Button>
             </form>
           </DialogContent>
@@ -163,10 +186,10 @@ export default function ServiciosPage() {
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => handleEdit(servicio)} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
+                  <button onClick={() => handleEdit(servicio)} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground active:scale-95 active:opacity-80 transition-all">
                     <Edit2 className="h-3.5 w-3.5" />
                   </button>
-                  <button onClick={() => deleteServicio(servicio.id)} className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                  <button onClick={() => deleteServicio(servicio.id)} className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive active:scale-95 active:opacity-80 transition-all">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>

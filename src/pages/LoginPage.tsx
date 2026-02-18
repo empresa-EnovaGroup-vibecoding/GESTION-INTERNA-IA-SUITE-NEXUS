@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, Lock, Mail, ArrowLeft, Send } from 'lucide-react';
+import { toast } from 'sonner';
 import logoNexus from '@/assets/logo-nexus.png';
 
 export default function LoginPage() {
@@ -19,6 +20,14 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim()) {
+      toast.error('El email es obligatorio');
+      return;
+    }
+    if (!password) {
+      toast.error('La contraseña es obligatoria');
+      return;
+    }
     setError('');
     setSubmitting(true);
     const { error } = await signIn(email, password);
@@ -28,6 +37,10 @@ export default function LoginPage() {
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim()) {
+      toast.error('Ingresa tu email');
+      return;
+    }
     setError('');
     setResetSubmitting(true);
     const { supabaseExternal } = await import('@/lib/supabaseExternal');
@@ -100,7 +113,7 @@ export default function LoginPage() {
                 </Button>
               </div>
             ) : (
-              <form onSubmit={handleForgotPassword} className="space-y-5 animate-fade-in">
+              <form noValidate onSubmit={handleForgotPassword} className="space-y-5 animate-fade-in">
                 <div className="text-center mb-2">
                   <h2 className="text-lg font-semibold text-foreground">Recuperar contraseña</h2>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -119,7 +132,6 @@ export default function LoginPage() {
                       type="email"
                       value={email}
                       onChange={e => setEmail(e.target.value)}
-                      required
                       placeholder="tu@email.com"
                       className="pl-10 h-11 rounded-xl bg-background"
                     />
@@ -145,7 +157,7 @@ export default function LoginPage() {
 
                 <button
                   type="button"
-                  className="w-full flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="w-full flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors active:scale-95 active:opacity-80"
                   onClick={() => { setForgotMode(false); setError(''); }}
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
@@ -156,7 +168,7 @@ export default function LoginPage() {
           ) : (
             /* ─── Login form ─── */
             <>
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form noValidate onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Email
@@ -168,7 +180,6 @@ export default function LoginPage() {
                       type="email"
                       value={email}
                       onChange={e => setEmail(e.target.value)}
-                      required
                       placeholder="tu@email.com"
                       className="pl-10 h-11 rounded-xl bg-background"
                     />
@@ -186,15 +197,13 @@ export default function LoginPage() {
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={e => setPassword(e.target.value)}
-                      required
                       placeholder="••••••••"
-                      minLength={6}
                       className="pl-10 pr-10 h-11 rounded-xl bg-background"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(prev => !prev)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors active:scale-95 active:opacity-80"
                       tabIndex={-1}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -223,7 +232,7 @@ export default function LoginPage() {
               <div className="mt-5 pt-4 border-t border-border text-center">
                 <button
                   type="button"
-                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors active:scale-95 active:opacity-80"
                   onClick={() => { setForgotMode(true); setError(''); }}
                 >
                   ¿Olvidaste tu contraseña?

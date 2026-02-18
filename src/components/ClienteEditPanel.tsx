@@ -89,7 +89,7 @@ export default function ClienteEditPanel({ clienteId, nombre, whatsapp, pais, no
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">WhatsApp</Label>
-          <Input value={whatsapp} onChange={e => onWhatsappChange(e.target.value)} className="h-9" />
+          <Input value={whatsapp} onChange={e => onWhatsappChange(e.target.value)} className="h-9" inputMode="tel" />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">País</Label>

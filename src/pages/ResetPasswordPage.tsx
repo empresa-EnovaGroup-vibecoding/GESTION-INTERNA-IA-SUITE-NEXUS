@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Eye, EyeOff } from 'lucide-react';
+import { toast } from 'sonner';
 import logoNexus from '@/assets/logo-nexus.png';
 
 export default function ResetPasswordPage() {
@@ -16,7 +17,6 @@ export default function ResetPasswordPage() {
   const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
-    // Supabase sets the session from the URL hash automatically
     const { data: { subscription } } = supabaseExternal.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setSessionReady(true);
@@ -27,6 +27,10 @@ export default function ResetPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!password || password.length < 6) {
+      toast.error('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
     setError('');
     setSubmitting(true);
 
@@ -70,7 +74,7 @@ export default function ResetPasswordPage() {
           {!sessionReady ? (
             <p className="text-sm text-muted-foreground text-center">Verificando enlace de recuperación...</p>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form noValidate onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="new-password">Nueva contraseña</Label>
                 <div className="relative">
@@ -79,15 +83,13 @@ export default function ResetPasswordPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    required
                     placeholder="••••••••"
-                    minLength={6}
                     className="pr-10"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(prev => !prev)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors active:scale-95 active:opacity-80"
                     tabIndex={-1}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

@@ -338,7 +338,7 @@ export default function ConfiguracionPage() {
           <div className="grid gap-3 sm:grid-cols-3">
             <Input placeholder="Nombre" value={newMember.nombre} onChange={e => setNewMember(p => ({ ...p, nombre: e.target.value }))} />
             <Input placeholder="Rol" value={newMember.rol} onChange={e => setNewMember(p => ({ ...p, rol: e.target.value }))} />
-            <Input placeholder="WhatsApp" value={newMember.whatsapp} onChange={e => setNewMember(p => ({ ...p, whatsapp: e.target.value }))} />
+            <Input placeholder="WhatsApp" inputMode="tel" value={newMember.whatsapp} onChange={e => setNewMember(p => ({ ...p, whatsapp: e.target.value }))} />
           </div>
           <Button variant="outline" size="sm" onClick={addMember} disabled={!newMember.nombre.trim()}>
             <Plus className="h-4 w-4 mr-1" /> Agregar miembro
